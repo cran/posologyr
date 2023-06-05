@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>A posteriori dose selection</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">A posteriori dose selection</h1>
+
+
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(posologyr)</span></code></pre></div>
+<div id="introduction" class="section level1">
+<h1>Introduction</h1>
+<p>Dosage individualization for a critical care patient treated with
+amikacin for suspected ventilator-associated pneumonia, using the
+population pharmacokinetic (ppk) model of Burdet et al. 2015, using the
+data from therapeutic drug monitoring (TDM).</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>mod_amikacin_Burdet2015 <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">ppk_model   =</span> rxode2<span class="sc">::</span><span class="fu">rxode</span>({</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">centr</span>(<span class="dv">0</span>) <span class="ot">=</span> <span class="dv">0</span>;</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    TVCl  <span class="ot">=</span> THETA_Cl<span class="sc">*</span>(CLCREAT4H<span class="sc">/</span><span class="dv">82</span>)<span class="sc">^</span><span class="fl">0.7</span>;</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    TVVc  <span class="ot">=</span> THETA_Vc<span class="sc">*</span>(TBW<span class="sc">/</span><span class="dv">78</span>)<span class="sc">^</span><span class="fl">0.9</span><span class="sc">*</span>(PoverF<span class="sc">/</span><span class="dv">169</span>)<span class="sc">^</span><span class="fl">0.4</span>;</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    TVVp  <span class="ot">=</span> THETA_Vp;</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    TVQ   <span class="ot">=</span> THETA_Q;</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    Cl    <span class="ot">=</span> TVCl<span class="sc">*</span><span class="fu">exp</span>(ETA_Cl);</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    Vc    <span class="ot">=</span> TVVc<span class="sc">*</span><span class="fu">exp</span>(ETA_Vc);</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    Vp    <span class="ot">=</span> TVVp<span class="sc">*</span><span class="fu">exp</span>(ETA_Vp);</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    Q     <span class="ot">=</span> TVQ <span class="sc">*</span><span class="fu">exp</span>(ETA_Q);</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    ke    <span class="ot">=</span> Cl<span class="sc">/</span>Vc;</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    k12   <span class="ot">=</span> Q<span class="sc">/</span>Vc;</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    k21   <span class="ot">=</span> Q<span class="sc">/</span>Vp;</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    Cc    <span class="ot">=</span> centr<span class="sc">/</span>Vc;</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    d<span class="sc">/</span><span class="fu">dt</span>(centr)  <span class="ot">=</span> <span class="sc">-</span> ke<span class="sc">*</span>centr <span class="sc">-</span> k12<span class="sc">*</span>centr <span class="sc">+</span> k21<span class="sc">*</span>periph;</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    d<span class="sc">/</span><span class="fu">dt</span>(periph) <span class="ot">=</span>            <span class="sc">+</span> k12<span class="sc">*</span>centr <span class="sc">-</span> k21<span class="sc">*</span>periph;</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    d<span class="sc">/</span><span class="fu">dt</span>(AUC)    <span class="ot">=</span>   Cc;</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  }),</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">error_model =</span> <span class="cf">function</span>(f,sigma){</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    g <span class="ot">&lt;-</span> sigma[<span class="dv">1</span>] <span class="sc">+</span> sigma[<span class="dv">2</span>]<span class="sc">*</span>f</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">return</span>(g)</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  },</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">theta =</span> <span class="fu">c</span>(<span class="at">THETA_Cl=</span><span class="fl">4.3</span>, <span class="at">THETA_Vc=</span><span class="fl">15.9</span>, <span class="at">THETA_Vp=</span><span class="fl">21.4</span>,<span class="at">THETA_Q=</span><span class="fl">12.1</span>),</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">omega =</span> lotri<span class="sc">::</span><span class="fu">lotri</span>({ETA_Cl <span class="sc">+</span> ETA_Vc <span class="sc">+</span> ETA_Vp <span class="sc">+</span> ETA_Q <span class="sc">~</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>      <span class="fu">c</span>(<span class="fl">0.1</span>,</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0.01</span>     ,   <span class="fl">0.05</span> ,</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>        <span class="fl">0.01</span>     ,   <span class="fl">0.02</span> ,   <span class="fl">0.2</span>  ,</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="sc">-</span><span class="fl">0.06</span>    ,   <span class="fl">0.004</span>,   <span class="fl">0.003</span>,    <span class="fl">0.08</span>)}),</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">covariates  =</span> <span class="fu">c</span>(<span class="st">&quot;CLCREAT4H&quot;</span>,<span class="st">&quot;TBW&quot;</span>,<span class="st">&quot;PoverF&quot;</span>),</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigma       =</span> <span class="fu">c</span>(<span class="at">additive_a =</span> <span class="fl">0.2</span>, <span class="at">proportional_b =</span> <span class="fl">0.1</span>))</span></code></pre></div>
+</div>
+<div id="a-posteriori-dose-selection" class="section level1">
+<h1>A posteriori dose selection</h1>
+<div id="patient-record-with-tdm-data" class="section level2">
+<h2>Patient record with TDM data</h2>
+<p>After the first administration, the dosage selection can be refined
+using the results of TDM. See
+<code>vignette(&quot;patient_data_input&quot;)</code> for more details regarding
+the patient record.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>df_patientA <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">ID=</span><span class="dv">1</span>,<span class="at">TIME=</span><span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>,<span class="dv">6</span>),</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>                              <span class="at">DV=</span><span class="fu">c</span>(<span class="cn">NA</span>,<span class="dv">58</span>,<span class="dv">14</span>),</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>                              <span class="at">EVID=</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">0</span>,<span class="dv">0</span>),</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>                              <span class="at">AMT=</span><span class="fu">c</span>(<span class="dv">2000</span>,<span class="dv">0</span>,<span class="dv">0</span>),</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>                              <span class="at">DUR=</span><span class="fu">c</span>(<span class="fl">0.5</span>,<span class="cn">NA</span>,<span class="cn">NA</span>),</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>                              <span class="at">CLCREAT4H=</span><span class="dv">50</span>,<span class="at">TBW=</span><span class="dv">62</span>,<span class="at">PoverF=</span><span class="dv">169</span>)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>df_patientA</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   ID TIME DV EVID  AMT DUR CLCREAT4H TBW PoverF</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1  1    0 NA    1 2000 0.5        50  62    169</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2  1    1 58    0    0  NA        50  62    169</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3  1    6 14    0    0  NA        50  62    169</span></span></code></pre></div>
+<p>The concentration measured 30 min after a 30 min infusion do not meet
+the target for a peak concentration; it is &lt; 60 mg/L.</p>
+</div>
+<div id="estimate-the-map-individual-parameters" class="section level2">
+<h2>Estimate the MAP individual parameters</h2>
+<p>The maximum a posteriori (MAP) individual parameters are
+estimated.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>patA_map <span class="ot">&lt;-</span> <span class="fu">poso_estim_map</span>(<span class="at">dat=</span>df_patientA,</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>                           <span class="at">prior_model=</span>mod_amikacin_Burdet2015)</span></code></pre></div>
+</div>
+<div id="plot-the-individual-pharmacokinetic-profile" class="section level2">
+<h2>Plot the individual pharmacokinetic profile</h2>
+<p>The individual pharmacokinetic profile can be plotted using the
+<code>rxode2</code> model provided by the <code>poso_estim_map()</code>
+function.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(patA_map<span class="sc">$</span>model,Cc)</span></code></pre></div>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASAAAAEgCAIAAACb4TnXAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAgAElEQVR4nO2deXwUVbr3n+p9S7o7S2cPWUgIIRj2mMBkhiugMhjRYVNwrhc/M8PcEca5F9EBHddR0TuOM6MO18GrDC7Icg0i4CDK8hIwcEGBZglZyJ50lt7Se3VVvX9ULHqSdGer6qX6fP/I5+lTlaeedPcv56lT5zwHoygKEAgENwhCHQACwWeQwBAIDhFx5/raNX1+foFQ2H+J5ubGgwcrHQ5HUdFtixYtxjCBv0YEgjdw9YXu7e3Zv3+f1+ulX5IksW/frrvuumfDho1tba16/SV/jQgEn+BEYHv2fPjf//1nt9vFtDQ01KvVmuzsXLFYUlJSdvHit/4aEQg+wUmKuHz5agD4/e+fZlosFlNCQiJtJybqLBazv0YakiSZlzKZTC5XcBEnAsE1HN6D+eJwOKRSKW1LJFKn0+Gvkaavz/rnP79G2zNmzMrJyfbn2WaziMUSqVTObsAEgZMkIRbL2HZL2O1WhUIlEonZ9ez1ugEwkUjCrluPx+1yOWJiNBiGse3ZKRJJBAIhu24dDhsApVDEsOuWJAmv1yMWy/y9DzEx6szM3MHtQRKYXC43m0207fG4ZTK5v0YapVL10EOPML8rk0n9eb569dvYWE1ycga7ATscFo/HrtGksuvW7XZdv96Vnp6lUqnZ9WyxdAmFIpUqjl23vb0Gi8U4aVImuwKjKMpkalUq46RSJYtuAaCxsZYgvKmpmey6xXFnX1+PRpMiEAwtGbF46H9tQRKYRhPHjGH09vZqNFp/jf1hiUQ5ORNH4lkgEMhkCq02gd2ARSJwOoF1tw6HHQBUKjXrngnCIRKJNRqW3TqddgDQahPYFhjpdhtjYzUKBcv/aNrbm3EcY/3tdbttBOHQaOKFwtGlHkEaFs/JyTUaezs72ymKPH++eurUYn+NCASfCFIPJhAIly9/sLJyL47jkyYVFBdP99eIQPAJDgW2ZcsLvi8zMiasW7dhwDlDNiIQvAHNnEAgOAQJDIHgECQwBIJDokhge/bsWbZs2Z49e0IdCCKKCNIoYshpbW194IEHCILYv3//vHnzUlJSQh0RIiqIlh6straWIAgA8Hq91dXVoQ4HES1Ei8C6uroY+8qVKyGMBBFVRIvAuru7GRsJDBE0kMAQCA6JRoHV1NQwS60RCE6JRoG53e76+voQBoOIHqJRYICyRESwQAJDIDgECQyB4JCoEBhJkkaj0bcFCQwRHKJCYEajkZ7GwVBTU4PjeKjiQUQPUSGwAfkhAOA4XldXF5JgEFFFlAoMUJaICApRIbCenh7GFgj6/2S9Xh+icBBRRFQIzHemb1FREW1cvXo1ROEgooioEBiTIqrV6unT+2tXoRQREQQiYMElSZIURfg/TlEUSRCBhgS7ugy0kZiYMHlyAW3X1tY6nXaJZOiCrBRFAlCB3Y4BgvACAEl6WfdMUcO/D2OAJAkAIAic9cKjtHMO3geSotj/4EjSC99/fEOCYdiQRX8jQGAOh7mvb4hRChqCIOx2U1dXQwAPra2NtKFWq9LS+otL4zh+5sxXkydPCvCLgd2OAY8HBwCzudPjsbDrGQC8XnC5bOz67OuzAEBXVwPrtekBoK+vO8AnOzbcbjtBEKx/cDS9vc3+DslkKq02bXB7BAhMLo8JsAnDzZstcnlsXFyg2vQWi502UlLSy8rmM+2NjV1z5y4Y8lecTovbzX5teqfTCdAUE5OoVmuHP3s0WCxdQqFQpYpn1y2OCwC64+IyWO/BTKY2LmrT9/RYcRwP/H0YA8PWpve3i0UECEwoFAcoCI5hmFAolkoD7W/U29s/jSMpKTknJy8hIYEeV7xy5Zq/X/R4HBiGBXY7BgiCAgCxWMq6Z4FAIBSKWHdLb9cilSq4SBFFIgkH74NQICBYdwtAAoBEIg/T2vShhRnkSExMBIBp06bRL7/77ruQxYSIDvgvMIqient7aRsJDBFk+C8wi8Xi8XhomxZYcXH/Ni5Go7GlpSVkkSGiAP4LzHee1IAeDFAnhuCYaBRYQUGBTNY/LIkEhuCUaBSYSCSaMmUK3XLx4sXQhIWIDqJLYAkJ/TuLonEORHCIIoEplUqFov/xCDPO0dDQYLGwP6kCgaCJIoHR+SEN04NRFHXp0qUQhIWIDqJUYMXFxczUBHQbhuCOKBVYbGxsdnY2bSOBIbgjSgUGaJwDERT4LzCmXgAzhEjDCEyv16NS9QiO4L/Ahu3BXC4XWt2M4AieC8xmszmdTtrW6XS+h2bPns3Y586dC2pYiKiB5wLzrSc1IEVMTk5OT0+nbSQwBEfwXGCD50n5wnRiSGAIjuC5wJiVYDCoBwMfgen1eiaTRCBYJIoEFh8/sF7FnDlzaAPHcTRYj+ACnguMuQcTCoVqtXrA0VmzZjGFflGWiOACnguM6cHi4uIYLTGo1eqJEyfSNhIYgguCVFWqqurE0aNf+LZs3LhFqVRt3/52W1v/ov05c0rvvruC3esyAhucH9LMnj37xo0bgASG4IYgCays7Ae33z6Xtm/ebDh37oxSqQIAk8m4adPTdHldDGO/O2UENniEg2b27NkffvghANy4ccNsNms0GtZjQEQzQUoRMUwgFIqEQhGGYceOfbl48b0A4PF4MAyTyxX0ocEp3Phh7sH89WDMOAdFUefPn2c9AESUE+zCo+fPn83OzlGrNQBgMhkpitq27U9WqzUzc8KSJfepVDH0aRRFud0u2hYIBAG1R5Ek6fUOXYucEZhWqx3ynKlTi8RiMb3bZXX1Nz/8YTndThBegiD8uR0zdHFzgvBy4JnAMAHrbuna9F4v+7XpSZLk4n2ga9Oz7tbr9dJfM4oa+gQMw4TCUNemJwjim29Or137C/oljnsyM7MWL65QKpWVlXsPHfpsxYrV9CGr1fLGG1tpe+rU4ri4mABuW1oaWlqGrkXe0dFGGy5X36lTR4Y8Z8KEjLq6BgD44otDZWXTfA/V1NSO9G8bDXp9hHWVVVVfcuOYkwryAODvsx4ntbV+A05ISCoqmjW4PagCu3r1cmJiIn33BQDp6ZkrV66h7ZKSsp0732XOVCiUy5c/SNsqlVIul/vzeePGZY0mXqcbuoi8zeagjby8gilTZgx5TmlpKS2whoZG5hyns8/jcajVSSP/60aC2+2uq7uSlZWnVAb6lzEG+vp6BAKhUslyyXuTqbu9vaWwcDrbPRhlNncoFBrWa1y3tNwkCG9WVh67bnHcZbMZ1eokfzXoJZKht08IqsAuXfo2P38y85IeP0xLywAAoVAoEt2q+i0WiwsLp47EZ13dVYVClZiYMviQ0+l0OPoFlpmZNeQ5AFBe/qOdOz8EgLa2do+HTEtLA4C+PrHTKfT3K2PG4bADgFodp9UOPegyZjAMF4nEGg3LAeO4B6AlMTGF9RSRIPrU6gSFYuDDyXHS1dWB4x7WPzi324ZhnoSEpPCtTY/jeEND/cSJt/61WCzm3bs/NJtNFEWePXumoKCQ3SsGmOnrS1lZGWNXVVWxGwMiygleD9bS0qTRaLTaW6N5hYVTzWbTjh1/IwgiJ2finXcuYfeKgSciMkyePDkuLs5oNAJAVVXVihUr2A0DEc0ET2A5ORPXr984oLGsrLysrJyjKwaeiMiAYVhpaenBgwcB9WAItuHzVCnfFDGAwABg7tz+h+AXL1602VjeJBIRzfBZYEwPhmFYXFxcgDMZgXm93urqas4jQ0QNUSEwtVotEgVKhmfPns3sho6yRASLRIXAAoxw0Mjl8hkz+p+AIYEhWITPAht2IqIvTJb4zTffEATBYViIaILPAht2rYovjMCsVqter+cwLEQ0ERUCGzZFBB+BAcoSEezBZ4GNKkXU6XTM6mYkMARb8Flg9OQMAAg8Rs/AdGJIYAi24K3AcBy3Wq20PZIeDADmzZtHG01NTU1NzVxFhogmeCuw3t5e6vvFcYNLjg7J/PnzGfvEif/HSViIKIPPAmPsEfZgubm5EyZMoO2TJ09xEhYiykAC+yeYTuzkSdSDIViAtwIb4WKwATAC6+w01NbWsx8WIsrgrcB8e7ARjiICwIIFCxj71KlvWI4JEX3wX2BKpVImG7pewmBSU1Pz8vrXXFdVneEkMkQ0wX+BjTw/pPmXf/kX2jh16huSJFkOCxFl8FZgo5rG4QtzG2YymS9fvsxyWIgog7cCG9VMX1/mz5/PVFA6duwYy2Ehogz+C2y0KaJOp5syZQptI4Ehxgn/BTbyIUQG5jbs+PHjHo+HzbAQUUawa9OPAYqiKCrQYANFUXQJdV9878EGHw3MggV3/PnPfwYAq9V66tSpH/3oh6P69QDQkVAUOdqQRgA15PswbqckAJAkwXrhUeDmfaAoCoDT92HoPgnDsCEPRYDA7HZTX1+3v6ME4bXbjQZDnW8jSZJms5m2JRJywNFhKSzMlEqlbrcbAPbt+3jy5LTRRz00Hg8OACZTu9ttYssnA467XK4+dn1arRYAMBjq2BXY9867rNYudn263TaCIEb7iY+Qnp4mf4dkMpVWO8T3JAIEJpOpfKtqD0AgaJHJYrTaf6pNbzKZmGX/6enZA44Oi1YLZWW3Hzt2AgBOnjwz2l8PgNPpBGhSqeLp/WVYxGrtEQrZr03v8QBAt1abGim16bu7LRiGs/iR0Qxbm14gGFpKESAwkUgiEkn8HcUwTCSSyGT/tJeCzdbJ2MnJaQOOjoRFixbQAtPrr3R1mTIzM0frYUhIUgAAEol8DCEFxmYzCYVi1t2KxTIAkMliuEgRxWIZ6wELhSKSJFl3S//5UqkyfGvTBxNmqSWMaZADABYuvIOxjxzhZC8cRDTAT4GZTLfucMYmsPz8vAkTMmj78OHD7ISFiD74KTDfHkyrHeNtyfz5/UXzjx49Sm+BiUCMFp4LTCAQjHlf8zvu6B+dt1qtp0+fZicyRJTBc4FpNJox760+b16pVCqlbZQlIsYGPwXGPAQbc/cFAAqFvLy8P0ukNzdCIEYLPwU22oJt/li8eDFt6PX62lpONkRH8BueC2y0U+kHcN999zHPfz799NPxhoWIPngusHH2YBMmTJg2bRptI4EhxgDPBTbmMXqG++67jzaqq6tbW1vH6Q0RbfBTYMyD5nH2YOAjMIqiDhw4ME5viGiDnwJjsQcrKiqaNGkSbaMsETFaeCgwm83GrJIcfw8GAPfeey9tHD9+3HcSFgIxLDwU2PgnIg6AyRJxHP/888/H7xARPfBcYON50MwwZ86c1NT+9UUoS0SMCh4KbPxrVQYgEAiWLl1K24cPH2amiSAQw8JDgY1t24fArFq1ijZcLhfqxBAjh4cC800Rxz+KSDNv3rysrCza/vjjj1nxiYgGeCgwJkVUKBQjr0ofGAzDVq5cSdtfffVVe3s7K24RvIeHAmPxKbMvDzzwAG2QJLlnzx4WPSN4DA8FxtZExAEUFxcXFRXR9kcffcSiZwSPCV5Vqe3b325ra6HtOXNK7767AgCamxsPHqx0OBxFRbctWrTYX1XHUcHiNI4BPPDAA1u2bAGAs2fP3rhxIz8/n13/CP4RPIGZTMZNm56WSCQAQAuJJIl9+3YtXbo8PT1j587/0esvTZ06jY0L9aeIXAjsqaeeovdW37Vr1+9+9zt2/SP4R5BSRI/Hg2GYXK4QCkVCoYhext/QUK9Wa7Kzc8ViSUlJ2cWL37JyLY7uwQAgOzu7tLSUtnfs2IF2D0MMS5B6MJPJSFHUtm1/slqtmZkTliy5T6WKsVhMCQmJ9AmJiTqL5dYDXIqi3G4XbQsEgoB1NSiSJL3eW1Wfenv7q9JrtVrf9lFBEF6CIAb/+po1q+kCOA0NDUePfslsEzFyt/TPMQfm3zOBYQLW3dJF3r1enPXCoyRJcvE+UBRJURTrbr1eL/01o6ihT8AwTCgcQk1BEhiOezIzsxYvrlAqlZWVew8d+mzFitUOh4OpKiORSJ1OB3O+1Wp5442ttD11anFcXKBCrS0tDS0tDczL7u7+QvYWS8+pU+OqGVpTM7BMQFZWklwuczpdAPDqqy9LJN4xuNXrz48nquBTVfUlN44bhj9lTIzzc/dHba3fgBMSkoqKZg1uD5LA0tMzV65cQ9slJWU7d74LAHK53GzuT+c8HrdMJmfOl8sVS5b0T7FVq2MVCr8VzBsarqvV2vj4JPql1+ulv/0AMHFifn7+1LEF7HLZcNwZE5M4+FBFRcUnn+wGgJMnTyckpI0qEfV4PI2NNenp2QqFamyB+cNmMwoEQoVCza5bi6XXYGjPyytivTa91doll8dKJPLhzx4N7e3NJEmkp2ez69brddvt5piYBH+16X2/vb4ESWD0+GFaWgYACIVCejMHjSZOr79En9Db26vR3BqTkEgkM2fOGYnnpqZalSo2NbW/dnxXVxf1fS+enT2RaR8tfX09TqdFpxvi19ev30ALDMfxr7468etf/3rkbh0Oe2NjTXy8Tqsd3baAw9LTAyKRWKNJYdctAGUwtKemZrKeIgoELrU6mfX/CCZTD457xvy5+8PtthmNpE6XHqa16S0W8+7dH5rNJooiz549U1BQCAA5OblGY29nZztFkefPV0+dWjz+C7E+03cwc+fOLSwspO3t27dzcQkEbwhSD1ZYONVsNu3Y8TeCIHJyJt555xIAEAiEy5c/WFm5F8fxSZMKiounj/9CrC8GG5K1a9du3LgRAPR6fXV1dUlJCUcXQkQ6wXsOVlZWXlZWPqAxI2PCunUbWLwK64vBhuSnP/3p5s2b6XXT27ZtQwJD+INvU6WCkCICQGJiIrNCbNeuXV1dLG/TiOANfBMYsxhMJBKp1SzfQPuyfv162nC5XO+88w53F0JENHwTGJMiajQaLrYVZpg3b97s2bNp++2332bK7CAQvvBWYNzlhwyPPvoobXR0dOzdu5fryyEiEb4JjKO1KkOyatWq5ORk2n799de5vhwiEuGbwHxTRK6vJZFIfvGLX9D2+fPnz5w5w/UVEREH3wQWzB4MANatW8dMp3zttdeCcEVEZME3gQXzHgwAkpOTmVIC+/fvv3LlShAuiogg+CYwZpierYJtw/Lkk0/Sq2lIknzllVeCc1FEpMArgVEUxcrmsaNi0qRJP/nJT2h7165d9fX1wbkuIiLglcBsNhuO96+0Y71eQAA2b95MP3Pzer1bt24N2nUR4Q+vBMZFydGRMG3aNGY35/fff7+5uTlol0aEObwSmMViYeygpYg0dLUpAMBx/OWXXw7mpRHhDK8E5rstQ5AFVlpaumDBAtp+9913a2sH1hpARCe8EpjvVPpgpog0L730En0nhuP4008/HeSrI8ITXgnMtwcLvsBmz57NbNW3e/fu8+cjrLINggv4KTCRSKRUKoMfwEsvvSQSiQCAoqjNmzcHPwBEuMErgTGDHGq1mtO1Kv6YNGnST3/6U9o+cuTI0aNHgx8DIqzglcCC/5R5MM8++yyzZ9Jjjz3GPJdDRCe8Elgwp9L7IyMj4z/+4z9o+8qVK2+99VaoIkGEA/wUWHBm+vpjy5YtEyZMoO1nnnmmo6MjhMEgQguvBBYOKSIAKBQKZsKU1WplnkEjopDglW0bMzabsa+v299RgvDabL0dHTUA0NPTX91JLAa6ZZyM2Ul5+bS5c0uqqqoB4P3337/33gVz5swEAI8HBwCjsdXl6h3GxejBcafTaWXXJz1u1NFRw8WgkcXSabF0suvT5eojCIKVT38wXV1+a9PLZCqtNm1wewQITCpVBthdRSBolkqVanUSANhsdroxMTGZbhkzAWrTj5A33vhjaWm51+ulKOrxx5/95puTMpnM5XICNCmVmthYlvtYjmrTu90UQLdanRQptem7u80Yho/z0x/MsLXp/ZXUjgCBicVSsVjq7yiGCcRimUKhAQCzuX+YPjExiW4ZMwTh9Xrd43Eya1bpY4899l//9V8AUFtbu3XrH7du3QogBgCpVDXO8AbjcFhFIjHrbiUSCwAoFCyX6KIo0mrtkkgUrP9HEArFJEmx/j643Ta73SyXx4ZpbfogQBCE1dqfIAV/GseQvPjii5MnT6btP/zhD+fOnQttPIjgwx+BWa1WZl+V0A5yMEil0m3bttH5LUEQjzzyCCqfGG3wR2AhnEofgPLy8l/+8pe0ffny5WeeeTak4SCCDRIY57zyyitZWVm0/Ze//OXcuQshDQcRVPgjsNCuVQmASqX65JNPxGIxAFAU9dJLr6PNIqIH/ggshMuZh2XOnDnMCjGz2fyrX60nSTK0ISGCA38EFrYpIs3mzZvLy/u3R/vqq6+fe+650MaDCA48FJhUKpXLWX58OX6EQuEHH3zA5K4vvPDC/v37QxsSIgjwR2DMTN+wugHzJSMjY+fOv9Oj9hRFrVmzBlUC5j38ERjTg3G67944mT9//s9+9q+0bbPZ7r//fqYUMYKX8FBgYduD0axcef999/VvP3vjxo2Kigqn0xnakBDcwUOBheEIhy8Yhv3lL3+aNm0a/fL06dOrV68mCCK0USE4AgksBCgUioMHDzKLMj/99NMNGzaENiQER/BHYOFQL2DkpKamHjp0iMlm33777Y0bN4Y2JAQX8EdgkXIPxlBYWFhZWclUyPnDH/6AKr3xDx4KLCJ6MJry8vI9e/ZIJBL65csvv/zUU0+FNiQEu/BEYDiO2+39y5kjSGAAsGTJEmamIgD8/ve/X78eTaTiDzwRWJjPkwrM0qVLP/roI0Zjb7755kMPPYQKKvIDJLCwYNmyZbt372buxz766KN77rnHd/oyIkLhicBCtfUeiyxduvTQoUMxMTH0y3/84x9lZWUNDX7LGCEiAp4ILNJ7MJr58+d//fXXiYn9payuXr1aUlJy/PjxkAaFGBfBqyp1/frVY8e+7OuzpqSkVVTcr1ZrAGD79rfb2lroE+bMKb377oqxOeeHwABg1qxZ1dXV99xzDz0PuKenZ+HChc8///yTTz4Zku0sEOMkSAIzm02VlbsfeuiRxMSkf/zj84MHKx988GEAMJmMmzY9TY9TY9jYu1PeCAwAsrOzT58+vWrVqsOHDwOA1+vdvHlzVVXVjh074uPjQx0dYnQEKUVsaWnKzs5NS8uQSCSlpT9obW0BAI/Hg2GYXK4QCkVCoShAddFhYe7BlEolMxwXucTGxh44cGDTpk1Mr3Xw4MHbbrvtiy++CG1giNESJIEVFBTee+8y2u7oaEtJSQMAk8lIUdS2bX969dUXdu36u83WN2b/ETeNY1iEQuHWrVsrKyuZv6i9vX3x4sX//u//brPZQhsbYuRgTC3B4KDXXzxy5NCKFavT0zNbW5urqk4uXlyhVCorK/d6vd4VK1bTp1ks5jfe6N8/YerU4ri4mMBu//jHtz777DAAZGdP+J//4dWOQZ2dhhdeeO3q1etMS1KS7te/XldaOieEUSEGkJCQVFQ0a3B78AY5nE7H/v17LRbLmjX/ptMlA0B6eubKlWvooyUlZTt3vsucLJPJFyy4i7a1Wq1K5Xc/2ObmupgYNUB/xfCEhMScnILxR+t223HcpVKxfM+D456WloaUlAy5fKQ73ObkFBw4MO+vf932xht/8Xq9AGAwdG3e/PyPf3z3009vSUlJpk+z280CgVAuH+Y/0WixWk09PYbs7Ems16a32XpkshixWMaiWwAwGNpIkkhJyWTXrdfrcTotSmWcv9r0/j7QIAmMILw7d76blZW7cuVDzEdFjx+mpWUAgFAoFIlu3TtJpdK5c384Es9tbY2xsVqPx0u/TEpKzszMHX/AfX09TqdFp2PBlS8Oh72lpUGnS9VqE0b1i6+99vqqVasffvhhvV5Ptxw8ePj48ZObNm3auHGjQqHo6WkWicQaTQq7Abe3N/X0GDIzc1mvTd/ZSajVyazXpu/rs+C4h5XvgC9ut81oFOh02WFam/7atSsSiXTRosW+n5PFYt69+0Oz2URR5NmzZwoKCsfsP7LWqoyNmTNnXrhw4cUXX2QmfNjt9meeeaagoOC9996jOzdEuBGkHqy9va2p6eZzz/2WfqlQKB9//KnCwqlms2nHjr8RBJGTM/HOO5eM2T//BjmGRCwWb9myZeXKlevXr2dGFFtaWtauXTtxYs5vf7vp4Yd/Np7BWATrBElgixYtXrRo8eD2srLysrLy8fsP/5JSLDJx4sTDhw8fPXr0N7/5DZMx1tU1PPLIupdeem39+vXr1q2TSv1u+IQIJjz5b8fMiw3nklLssmDBggsXLrz55pspKbfuu+rr6x977LH8/PxXX33Vd34mIlTwQWAej8ftdtN29AgMAMRi8a9+9au6urpXXnnFd9/35ubmJ554IiMj45e//OV3330XwggRfBBYX9+tJ9RRJTAahULxxBNPXLhw6oUXfpeamsq02+32bdu2TZ8+vaSk5G9/+xta/BIS+CGwWzMbYmNjQxhJCFEqlY8+uq6hoeGdd96ZMmWK76GzZ8/+/Oc/T05OXrVq1YEDB5jeHhEE+CGwqO7BfJFKpT/72c8uX7585MiRe++9VyS6NYjlcrk++eSTioqK5OTkhx9++MCBA6jgaRBAAuMhGIYtXLiwsrKysbHx+eefz87O9j1qNpt37NhRUVGRmJi4bNmy9957r7OzM1Sh8h5+COxWiogE5ktaWtrTTz9dX19/4sSJRx55ZMBTeLvdvm/fvrVr16amps6YMePJJ588evQo6tbYhR8CQz1YIDAMKy8v3759e2dn54EDBx566KEB7xJFUd9+++3WrVsXLlwYFxf3ox/96Nlnn/3666+ZQl2IMRO8yb7cYbX2C0wsFisUitAGE85IpdIlS5YsWbLE4/EcP358//79n3/+eXNzs+85LpfrxIkTJ06cAACRSFRYOHnixKzWVlNJSUleXl6IAo9g+CAwpgdD3dcIkUgkixYtWrRo0VtvvaXX6w8fPnzkyJGqqqoB+aHX67106fKlS5f/938PAIBWq505c+aMGTNmzlhKY60AAA1RSURBVJxZXFycl5eHpmUNCx8EZrP1ZzJIYGOgqKioqKjo8ccfd7lcVVVVx48fP378+Llz5waP5ptMpqNHjx49epR+qVQqp0yZctttt9EeCgsLfeeUIGj4IbD+QQ4ksPEgk8nuuOOOO+64AwCcTue5c+eqqqq+/vqr//u//zObh3hIbbfbz549e/bsWaZFq9UWFBRMnjw5Pz9/0qRJ+fn5ubm5UT4rkg8CY1LEqH3KzDpyuby8vLy8vPxf//XBGzf0mZmTz549e+7cuQsXLnz77bf+JoWYTKYzZ86cOXOGaREKhenp6bnfk52dnZOTk5WVFR8fN6QH/sErgaEejCNoYaxatQoAKIpqaGj47rvvLl68qNfrL126dPPmTX/F9AmCaGpqampq+vrrr33blUplenpKTs7E7OyczMzMjIyMzMzMzMzMlJQUHtQs8oUfAkMpYvDAMIzujn7yk5/QLQ6H4/r161evXr1+/fq1a9euXbtWX1/v8XgCOLHb7TU1dTU1dQPaBQJBUlJSenp6SkpKRkZGSkoKbaelpSUnJ0di1Tp+CAz1YKFEoVDMmDFjxowZTAtBEI2NjbW1tbW1tXV1dfX19fX19Y2NjS6XK7ArkiQ7Ojo6OjqGPCqVSpOSktLS0nQ6XWpqalJSkk6nS0lJ0el0tKFUjrTSSdBAAkOwj1AopHu5u+66i2mkKKq9vf3m91y7dslg6G1ra29ubh5WeDRut7u5uXnAgztfFAqFRqOOj4+fMCErMTGRFl7C9yQlJSUkJARZhLwSGBrkCGcwDEtLS0tLS5s3bx5FkZ2dtUzRG4PB0Nra2tbW1tTU1N7e3tra2tra2tHR0dLS4nA4Rn4Jh8PhcDja2zsuX9b7O0cul8fHxyckJOh0ungfEhISmJ/x8fEqlYqFv5kHAvN6vU5n//8/1INFKElJSUlJSTNnzhx8yGq1tra2dnZ2tre3GwyGtra2rq4u2jYYDL29vaO9ltPppAUc+DSJRBIfHx8XF0f/VKtjFi78wapVOaO9XMQLjHnKDEhgfCQ2NrawsLCwcOiKYx6Pp7u722AwdHZ20saVK5d6e40EQdEt3d3dgYdb/OHxeAbcDWZkJI3BT8QLzDeFQAKLNiQSCZ12Mi1XrlzAcc+0abczLVar1WAw9PjQ1dXV29vb09PT68OwJa612rFUBIx4gfn2YOgeDDGY2NjY2NjYwDOVKYryFZvRaGR+fk9PcjJPezC73WSz+U21+/qsjE0QVoNh4KOVsUFRFADJljcGjwcHAJOp3eMxD3vyqCBJ0ut1GQwsLzCxWs0AYDDUsb07GQUAVmtXX183q27B5bIRBDG2D06jEWo0utxc3VAHKZIke3qa/P2uVKocsqxyBAhMIpErlX5n1tjtt1LEpKSMAGeOCrfb7vW62PLGIBS6AEAmi1EqWc5m7XazUCiUyViuTe9weABAqYzjoja9VKpkvTa9SNQD4GX9gyMIt8NhVSjUGDZ0bXrfwu//1M5uHFwgFssCfAx2+60VFqmpE9gaXaUokiA8KhXLn5NAYAcAuTyGdc8ul00kErPull5rp1KxLjCSFhjrtelFIglFAevvg9ttczisCoUmTGvTcwdzDyYUCsPwQT4iyol4gTHL2mNjY9EuxohwI+IFhlZbIsIZHggMTaVHhC8RLzDmQTMSGCIMiXiBoRQREc7wR2BoGgciDIl4gTGjiKgHQ4QhES8wlCIiwhkkMASCQyJbYARBMKvNkcAQYUhkC8xqtTLLeJDAEGFIZAvMtwImEhgiDEECQyA4BAkMgeCQyBaY1XprOTN60IwIQyJbYKgHQ4Q5PBEYhmExMSyvlkcgxg9PBBYTE4N2W0SEIZH9pWQEhvJDRHiCBIZAcEiIq0o1NzcePFjpcDiKim5btGgxho1O8EhgiDAnlD0YSRL79u266657NmzY2NbWqtdfGq0HJDBEmBNKgTU01KvVmuzsXLFYUlJSdvHit6P1wDwHQwJDhCehFJjFYkpISKTtxESdxTLqatKoB0OEOaG8B3M4HFKplLYlEqnTeasIttVq+etf/0TbhYWFWu3QszQyM1MFAspud1CU59SpIyzGRlEUAHXjRj2LPgGAnvqv159nvYQjRZEAgGGXuXBbVfUlu24BgCQJDGtk/X0gCAIA2P0yAABdm76+3m9t+vj4xMmTpw9uD6XA5HK52WyibY/HLZPJmUNSqWzevB/StlarVamGLtn79ttvNTfXxcSotdpEdmNzu+047lKpWN51G8c9LS0NOl2KXM5yEWK73SwQCOVylp+2W62mnh5DRkYOF7XpZbIY1mvTGwxtJEmkpGSy69br9TidFqUyTiAYuja9vw80lALTaOKYgY3e3l6NRssckkqlc+f+cCRO2toaY2O1mZm57MbW19fjdFp0OpbdOhz2lpYGnS5Vq01g13NPT7NIJB5yg4/x0N7e1NNjyMzMZb02fWcnwWwhyyJ9fRYc97D+fXC7bUajQKfLjqTa9Dk5uUZjb2dnO0WR589XT51aHMJgEAguCGUPJhAIly9/sLJyL47jkyYVFBcPkcIiEBFNiB80Z2RMWLduQ2hjQCC4I7KnSiEQYQ4SGALBIUhgCASHIIEhEByCBIZAcEgEbIIeGKPRqlDYWHcrlSqFQvbfHBzHjcY+phoxiyiVGi7WdNvtDqOxj3W3GIbFxCSyPo0DACyWPreb/bdXJJLGxCT6m8YRgIjvwWpqrvf29rLuViKRKxQa1t16vfjlyxedTifrnuXyWKlUxbpbi8Vy+fJFAIptx5hKFScWS9l2C21tbU1NfmcMjhmhUKxSxY12vSLwQGAIRDiDBIZAcAjGbJ4QoVgsZolEIpcrQh3IiCBJwmKxxMTEiESjmzMaKtxut8Nh12rjQh3ISLHbbSRJxsSESxXaiBcYAhHOoBQRgeCQCB6mH2dFquBz/frVY8e+7OuzpqSkVVTcr1azP0rJBR6P57vvzs+ZUxrqQIbHbDZ99tm+zs6OlJTU5csf9F3CGyrC/Uvpj/FXpAoyZrOpsnJ3RcX9jz32hEajOXiwMtQRjZQvvjhQXV0V6iiGh6KoDz547/bb5/3nf26Oj084c+ZUqCMCiFyBjb8iVZBpaWnKzs5NS8uQSCSlpT9obW0JdUQj4vr1qx0dbaGOYkTcvFmnUqny8wuEQuGdd/549uzbQx0RQOSmiOOvSBVkCgoK8/Im0XZHR1tKSlpo4xkJNlvf8eNH7777ns8+2xfqWIbHaOxVKBR7937c0dGenp5x111LQh0RQOT2YAEqUoUnYrGEviXQ6y9++eXh+fMXhDqiYaH279+7aNHdCkVkPAJxOp3Xrl0tLp7+85//CgAOHfos1BEBRK7A5HK5x+Oh7QEVqcIWp9Oxa9ffq6pOrlnzb+npLJc9Yp1z576Jj0/MyckLdSAjRSaTZWRk5uUVSKWykpKy2tqaUEcEELkpYoCKVOEJQXh37nw3Kyt35cqHWC8GyAVtba01NVcvXjxPkhSOe7Zufe7RR/9TqWR/uiNbqNW3vgMCgSBMtrOKVIHl5OR+9tm+zs72pKTk8+erp06dFuqIhuHatSsSiXTRosWhDmSkLF26nDa6uw27du1cv35jaOMZltzciZWVe1pbm9PSMs6ePZOfXxDqiAAiV2ARV5Gqvb2tqenmc8/9ln6pUCgff/yp0IbEM4RC0cqVaw4c+F+73T5hQvaSJUtDHREAmiqFQHBKWOSpCARfQQJDIDgECQyB4BAkMASCQ5DAEAgOQQJDIDgECQyB4BAkMASCQyJ1JgeC5t13/9ra2jzkodtum37ffStee+1Fh8O+YsXqyZOLghwbAlAPhkBwCpoqFdkQBEGX3W1tbXn//XcAYO3adampaQCAYZhAICQILwAIBMKImMLPP1CKGNkIhf3V0kUiEWP4VtV//fVX6BRx4sT8l156BgCWLFlaXX3abDbpdMl33vljgUDwxRefd3V1arVxCxcuzs3NAwCSJE6ePHbtmt5kMsbFxc+effvMmSVB/+P4ABJY1PH55/sFAowkyba2lg8+eI+iSK+XoCjSYOjcvfvD3/zmCZlM/sknH964cU0oFGq18QZD5+efV5rN5jvuuDPUsUceSGBRx+TJhRUVy5qbGz/+eIfH487Nzbv//pUGQ+ff/77d43F3dnYAwI0b10Qi0YYNj8fExF65cmnv3o9Pnz45a1ZJpJSaCx+QwKKOmTPnyGQyZj3i9OmzFApldnauUCgiCC+Oe9raWgFApYq5cOEcAJAkiWECkiQbGxuKi2eEMvQIBAks6hhQv0ShUNIGMwhCl+gym03Hjx/1PdPhsAcjPn6BBIYYSGysGgCmTLlt2bIHQh1LxIMEhhhIenoGADQ2NtjtNqVS1d3d9emnuymKXL58dVxcfKijizCQwBADycsryMrKaWxsePPN1+PjEzo7OwjCO23aTKSuMYAEhhiC1asfPnbsy5qa611dnfHxCTNnzgmTStQRB5rJgUBwCJqLiEBwCBIYAsEhSGAIBIcggSEQHIIEhkBwCBIYAsEhSGAIBIcggSEQHPL/AWASmE5OfXDxAAAAAElFTkSuQmCC" /><!-- --></p>
+</div>
+<div id="time-required-to-reach-the-target-cmin-following-the-first-administration" class="section level2">
+<h2>Time required to reach the target Cmin following the first
+administration</h2>
+<p>With the MAP estimates of the individual parameters, the prediction
+of the time needed before reaching the target Cmin can be updated.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">poso_time_cmin</span>(<span class="at">dat=</span>df_patientA,</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>               <span class="at">prior_model=</span>mod_amikacin_Burdet2015,</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>               <span class="at">tdm =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>               <span class="at">target_cmin =</span> <span class="fl">2.5</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $time</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 33.9</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $type_of_estimate</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;point estimate&quot;</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $cmin_estimate</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 2.487865</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $indiv_param</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   THETA_Cl THETA_Vc THETA_Vp THETA_Q    ETA_Cl    ETA_Vc    ETA_Vp    ETA_Q</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3      4.3     15.9     21.4    12.1 0.4499479 0.2730561 0.7061648 -0.13884</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   CLCREAT4H TBW PoverF</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3        50  62    169</span></span></code></pre></div>
+<p>The next dose (if needed) can be administered 33.9 hours following
+the first infusion.</p>
+</div>
+<div id="optimal-dose-selection-a-posteriori" class="section level2">
+<h2>Optimal dose selection a posteriori</h2>
+<p>The optimal dose to achieve a peak concentration of 80 mg/l can be
+determined using the MAP estimates.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>map_dose <span class="ot">&lt;-</span> <span class="fu">poso_dose_conc</span>(<span class="at">dat=</span>df_patientA,</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>                           <span class="at">prior_model=</span>mod_amikacin_Burdet2015,</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>                           <span class="at">tdm=</span><span class="cn">TRUE</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>                           <span class="at">time_c =</span> <span class="dv">35</span>,               <span class="co">#target concentration at t = 35 h</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>                           <span class="at">time_dose =</span> <span class="dv">34</span>,            <span class="co">#dosing at t = 34 h</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>                           <span class="at">duration =</span> <span class="fl">0.5</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>                           <span class="at">target_conc =</span> <span class="dv">80</span>)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>map_dose</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $dose</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 2447.917</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $type_of_estimate</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;point estimate&quot;</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $conc_estimate</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $indiv_param</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   THETA_Cl THETA_Vc THETA_Vp THETA_Q    ETA_Cl    ETA_Vc    ETA_Vp      ETA_Q</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3      4.3     15.9     21.4    12.1 0.4499608 0.2730596 0.7061496 -0.1388505</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   CLCREAT4H TBW PoverF</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3        50  62    169</span></span></code></pre></div>
+<p>The next dose should be 2450 mg.</p>
+</div>
+<div id="interdose-interval-selection-a-posteriori" class="section level2">
+<h2>Interdose interval selection a posteriori</h2>
+<p>The optimal inter-dose interval to reach a Cmin of 2.5 mg/L before
+each dosing can be determined using the MAP estimates.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>map_interval <span class="ot">&lt;-</span> <span class="fu">poso_inter_cmin</span>(<span class="at">dat=</span>df_patientA,</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>                                <span class="at">prior_model=</span>mod_amikacin_Burdet2015,</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>                                <span class="at">dose =</span> map_dose<span class="sc">$</span>dose,</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>                                <span class="at">duration =</span> <span class="fl">0.5</span>,</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>                                <span class="at">target_cmin =</span> <span class="fl">2.5</span>)</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>map_interval</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $interval</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 38.57781</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $type_of_estimate</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;point estimate&quot;</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $conc_estimate</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $indiv_param</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   THETA_Cl THETA_Vc THETA_Vp THETA_Q   ETA_Cl    ETA_Vc    ETA_Vp      ETA_Q</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1      4.3     15.9     21.4    12.1 0.449952 0.2730587 0.7061588 -0.1388432</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   CLCREAT4H TBW PoverF</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1        50  62    169</span></span></code></pre></div>
+<p>The interval between doses should not be less than 38.6 hours to
+allow adequate elimination of amikacin between each infusion.</p>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
