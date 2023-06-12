@@ -1,6 +1,6 @@
 Package: posologyr
 Title: Individual Dose Optimization using Population Pharmacokinetics
-Version: 1.2.1
+Version: 1.2.2
 Authors@R: c(
     person("Cyril","Leven",role = c("aut", "cre","cph"),
            email = "cyril.leven@chu-brest.fr",
@@ -28,11 +28,11 @@ BugReports: https://github.com/levenc/posologyr/issues
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 NeedsCompilation: no
-Packaged: 2023-06-02 22:54:44 UTC; cyril
+Packaged: 2023-06-12 09:39:10 UTC; cyril
 Author: Cyril Leven [aut, cre, cph] (<https://orcid.org/0000-0002-0697-4370>),
   Emmanuelle Comets [ctb],
   Audrey Lavenu [ctb],
   Marc Lavielle [ctb]
 Maintainer: Cyril Leven <cyril.leven@chu-brest.fr>
 Repository: CRAN
-Date/Publication: 2023-06-05 08:40:02 UTC
+Date/Publication: 2023-06-12 18:10:02 UTC
