@@ -33,13 +33,22 @@ model, a list of six objects.}
 
 \item{tdm}{A boolean. If \code{TRUE}: estimates the optimal dose for a selected
 target auc over a selected duration following the events from \code{dat}, and
-using Maximum A Posteriori estimation. If \code{FALSE} : performs the
-estimation in a simulated scenario defined by the remaining parameters.}
+using Maximum A Posteriori estimation. Setting \code{tdm} to \code{TRUE} causes the
+following to occur:
+\itemize{
+\item the \code{time_dose} argument is required and is used as the starting point
+for the AUC calculation instead of \code{starting_time};
+\item the arguments \code{estim_method}, \code{p}, \code{greater_than}, \code{interdose_interval},
+\code{add_dose}, \code{indiv_param} and \code{starting_time} are ignored.
+}}
 
-\item{time_auc}{Numeric. The target AUC is computed from \code{starting_time} to
-\code{time_auc}.}
+\item{time_auc}{Numeric. A duration. The target AUC is computed from
+\code{starting_time} to \code{starting_time} + \code{time_auc}.
+When \code{tdm} is set to \code{TRUE} the target AUC is computed from \code{time_dose} to
+\code{time_dose} + \code{time_auc} instead.}
 
-\item{time_dose}{Numeric. Time when the dose is to be given.}
+\item{time_dose}{Numeric. Time when the dose is to be given. Only used and
+mandatory, when \code{tdm} is set to \code{TRUE}.}
 
 \item{target_auc}{Numeric. The target AUC.}
 
@@ -48,7 +57,8 @@ the individual parameters. The default method "map" is the Maximum A
 Posteriori estimation, the method "prior" simulates from the prior
 population model, and "sir" uses the Sequential Importance Resampling
 algorithm to estimate the a posteriori distribution of the individual
-parameters. This argument is ignored if \code{indiv_param} is provided.}
+parameters. This argument is ignored if \code{indiv_param} is provided, or if
+\code{tdm} is set to \code{TRUE}.}
 
 \item{nocb}{A boolean. for time-varying covariates: the next observation
 carried backward (nocb) interpolation style, similar to NONMEM.  If
@@ -56,21 +66,24 @@ carried backward (nocb) interpolation style, similar to NONMEM.  If
 Defaults to \code{FALSE}.}
 
 \item{p}{Numeric. The proportion of the distribution of AUC to consider for
-the optimization. Mandatory for \code{estim_method=sir}.}
+the optimization. Mandatory for \code{estim_method=sir}. This argument is
+ignored if \code{tdm} is set to \code{TRUE}.}
 
 \item{greater_than}{A boolean. If \code{TRUE}: targets a dose leading to a
 proportion \code{p} of the AUCs to be greater than \code{target_auc}. Respectively,
-lower if \code{FALSE}.}
+lower if \code{FALSE}. This argument is ignored if \code{tdm} is set to \code{TRUE}.}
 
 \item{starting_time}{Numeric. First point in time of the AUC, for multiple
-dose regimen. The default is zero. Set equal to \code{time_dose} when
-\code{tdm=TRUE}.}
+dose regimen. The default is zero. This argument is ignored if \code{tdm} is
+set to \code{TRUE}, and \code{time_dose} is used as a starting point instead.}
 
 \item{interdose_interval}{Numeric. Time for the interdose interval for
-multiple dose regimen. Must be provided when add_dose is used.}
+multiple dose regimen. Must be provided when add_dose is used. This
+argument is ignored if \code{tdm} is set to \code{TRUE}.}
 
-\item{add_dose}{Numeric. Additional doses administered at
-inter-dose interval after the first dose. Optional.}
+\item{add_dose}{Numeric. Additional doses administered at inter-dose interval
+after the first dose. Optional. This argument is ignored if \code{tdm} is set
+to \code{TRUE}.}
 
 \item{duration}{Numeric. Duration of infusion, for zero-order
 administrations.}
@@ -79,7 +92,8 @@ administrations.}
 algorithm.}
 
 \item{indiv_param}{Optional. A set of individual parameters : THETA,
-estimates of ETA, and covariates.}
+estimates of ETA, and covariates. This argument is ignored if \code{tdm} is
+set to \code{TRUE}.}
 }
 \value{
 A list containing the following components:
@@ -100,7 +114,7 @@ time-concentration curve (AUC) given a population pharmacokinetic
 model, a set of individual parameters, and a target AUC.
 }
 \examples{
-rxode2::setRxThreads(1) # limit the number of threads
+rxode2::setRxThreads(2L) # limit the number of threads
 
 # model
 mod_run001 <- list(

@@ -23,15 +23,25 @@
 #' parameters, a dose, and a target Cmin.
 #'
 #' @param dat Dataframe. An individual subject dataset following the
-#'     structure of NONMEM/rxode2 event records.
+#'    structure of NONMEM/rxode2 event records.
 #' @param prior_model A \code{posologyr} prior population pharmacokinetics
 #'    model, a list of six objects.
 #' @param tdm A boolean. If `TRUE`: computes the predicted time to reach the
 #'    target trough concentration (Cmin) following the last event from `dat`,
-#'    and using Maximum A Posteriori estimation. If `FALSE` : performs the
-#'    estimation for a simulated scenario defined by the remaining parameters.
+#'    and using Maximum A Posteriori estimation. Setting `tdm` to `TRUE` causes
+#'    the following to occur:
+#'
+#'    * the simulation  starts at the time of the last recorded dose (from the
+#'    TDM data) plus `from`;
+#'    * the simulation stops at the time of the last recorded dose (from the TDM
+#'     data) plus `last_time`;
+#'    * the arguments `dose`, `duration`, `estim_method`, `p`, `greater_than`,
+#'    `interdose_interval`, `add_dose`, `indiv_param` and `starting_time` are
+#'    ignored.
+#'
 #' @param target_cmin Numeric. Target trough concentration (Cmin).
-#' @param dose Numeric. Dose administered.
+#' @param dose Numeric. Dose administered. This argument is ignored if `tdm` is
+#'    set to `TRUE`.
 #' @param endpoint Character. The endpoint of the prior model to be optimised
 #'    for. The default is "Cc", which is the central concentration.
 #' @param estim_method A character string. An estimation method to be used for
@@ -39,36 +49,52 @@
 #'    Posteriori estimation, the method "prior" simulates from the prior
 #'    population model, and "sir" uses the Sequential Importance Resampling
 #'    algorithm to estimate the a posteriori distribution of the individual
-#'    parameters. This argument is ignored if `indiv_param` is provided.
+#'    parameters. This argument is ignored if `indiv_param` is provided, or if
+#'    `tdm` is set to `TRUE`.
 #' @param nocb A boolean. For time-varying covariates: the next observation
-#'     carried backward (nocb) interpolation style, similar to NONMEM.  If
-#'     `FALSE`, the last observation carried forward (locf) style will be used.
-#'     Defaults to `FALSE`.
-#' @param p Numeric. The proportion of the distribution of cmin to consider for
-#'    the estimation. Mandatory for `estim_method=sir`.
+#'    carried backward (nocb) interpolation style, similar to NONMEM. If
+#'    `FALSE`, the last observation carried forward (locf) style will be used.
+#'    Defaults to `FALSE`.
+#' @param p Numeric. The proportion of the distribution of Cmin to consider for
+#'    the estimation. Mandatory for `estim_method=sir`. This argument is ignored
+#'    if `tdm` is set to `TRUE`.
 #' @param greater_than A boolean. If `TRUE`: targets a time leading to a
 #'    proportion `p` of the cmins to be greater than `target_cmin`.
-#'    Respectively, lower if `FALSE`.
-#' @param from Numeric. Starting time for the simulation of the
-#'     individual time-concentration profile. The default value is
-#'     0.2
-#' @param last_time Numeric. Ending time for the simulation of the
-#'     individual time-concentration profile. The default value is
-#'     72.
-#' @param add_dose Numeric. Additional doses administered at
-#'     inter-dose interval after the first dose. Optional.
-#' @param interdose_interval Numeric. Time for the inter-dose interval
-#'     for multiple dose regimen. Must be provided when add_dose is used.
+#'    Respectively, lower if `FALSE`. This argument is ignored if `tdm` is set
+#'    to `TRUE`.
+#' @param from Numeric. Starting time for the simulation of the individual
+#'    time-concentration profile. The default value is 0.2. When `tdm` is set
+#'    to `TRUE` the simulation starts at the time of the last recorded dose plus
+#'    `from`.
+#' @param last_time Numeric. Ending time for the simulation of the individual
+#'    time-concentration profile. The default value is 72. When `tdm` is set to
+#'    `TRUE` the simulation stops at the time of the last recorded dose plus
+#'    `last_time`.
+#' @param add_dose Numeric. Additional doses administered at inter-dose interval
+#'    after the first dose. Optional. This argument is ignored if `tdm` is
+#'    set to `TRUE`.
+#' @param interdose_interval Numeric. Time for the inter-dose interval for
+#'    multiple dose regimen. Must be provided when add_dose is used. This
+#'    argument is ignored if `tdm` is set to `TRUE`.
 #' @param duration Numeric. Duration of infusion, for zero-order
-#'     administrations.
+#'    administrations. This argument is ignored if `tdm` is set to `TRUE`.
 #' @param indiv_param Optional. A set of individual parameters : THETA,
-#'     estimates of ETA, and covariates.
+#'    estimates of ETA, and covariates.
 #'
-#' @return A numeric time to the selected trough concentration, from the
-#'     time of administration.
+#' @return A list containing the following components:
+#' \describe{
+#'   \item{time}{Numeric. Time needed to reach the selected Cmin.}
+#'   \item{type_of_estimate}{Character string. The type of estimate of the
+#'   individual parameters. Either a point estimate, or a distribution.}
+#'   \item{cmin_estimate}{A vector of numeric estimates of the Cmin. Either a
+#'   single value (for a point estimate of ETA), or a distribution.}
+#'   \item{indiv_param}{A `data.frame`. The set of individual parameters used
+#'   for the determination of the time needed to reach a selected Cmin: THETA,
+#'   estimates of ETA, and covariates}
+#'   }
 #'
 #' @examples
-#' rxode2::setRxThreads(1) # limit the number of threads
+#' rxode2::setRxThreads(2L) # limit the number of threads
 #'
 #' # model
 #' mod_run001 <- list(
@@ -123,10 +149,31 @@ poso_time_cmin <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
                            greater_than=TRUE,from=0.2,last_time=72,
                            add_dose=NULL,interdose_interval=NULL,
                            duration=0,indiv_param=NULL){
+
+  prior_model <- get_prior_model(prior_model)
   object <- posologyr(prior_model,dat,nocb)
 
-  #Get or simulate the individual scenario: events and observations------------
+  #Get or simulate the individual scenario: events and observations-------------
   if(tdm){ #using TDM data
+    #input validation
+    if (estim_method != "map"){
+      warning("estim_method is ignored when tdm=TRUE")
+    }
+    if (!is.null(dose)){
+      warning("dose is ignored when tdm=TRUE")
+    }
+    if (duration != 0){
+      warning("duration is ignored when tdm=TRUE")
+    }
+    if (!is.null(interdose_interval)){
+      warning("interdose_interval is ignored when tdm=TRUE")
+    }
+    if (!is.null(add_dose)){
+      warning("add_dose is ignored when tdm=TRUE")
+    }
+    if (!is.null(indiv_param)){
+      warning("indiv_param is ignored when tdm=TRUE")
+    }
     #clear all unused input
     estim_method <- NULL
     dose <- NULL
@@ -137,7 +184,7 @@ poso_time_cmin <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
     duration <- NULL
     indiv_param <- NULL
     select_proposal_from_distribution <- FALSE
-    #MAP estimation of the individual PK profile from TDM data
+    #MAP estimation of the individual PK profile from the TDM data
     cmin_map <- poso_estim_map(dat=dat,prior_model=prior_model,nocb=nocb)
     #individual parameters as ETA + covariates
     covar <- utils::tail(dat[,prior_model$covariates],1)
@@ -178,8 +225,7 @@ poso_time_cmin <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
     #Input validation
     if (!is.null(add_dose)){
       if (is.null(interdose_interval)){
-        stop("interdose_interval is mandatory when add_dose is used.",
-             call.=FALSE)
+        stop("interdose_interval is mandatory when add_dose is used.")
       }
     }
 
@@ -277,45 +323,59 @@ poso_time_cmin <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
 #' model, a set of individual parameters, and a target AUC.
 #'
 #' @param dat Dataframe. An individual subject dataset following the
-#'     structure of NONMEM/rxode2 event records.
+#'    structure of NONMEM/rxode2 event records.
 #' @param prior_model A \code{posologyr} prior population pharmacokinetics
 #'    model, a list of six objects.
 #' @param tdm A boolean. If `TRUE`: estimates the optimal dose for a selected
 #'    target auc over a selected duration following the events from `dat`, and
-#'    using Maximum A Posteriori estimation. If `FALSE` : performs the
-#'    estimation in a simulated scenario defined by the remaining parameters.
-#' @param time_auc Numeric. The target AUC is computed from `starting_time` to
-#'    `time_auc`.
-#' @param time_dose Numeric. Time when the dose is to be given.
+#'    using Maximum A Posteriori estimation. Setting `tdm` to `TRUE` causes the
+#'    following to occur:
+#'
+#'    * the `time_dose` argument is required and is used as the starting point
+#'    for the AUC calculation instead of `starting_time`;
+#'    * the arguments `estim_method`, `p`, `greater_than`, `interdose_interval`,
+#'    `add_dose`, `indiv_param` and `starting_time` are ignored.
+#'
+#' @param time_auc Numeric. A duration. The target AUC is computed from
+#'    `starting_time` to `starting_time` + `time_auc`.
+#'    When `tdm` is set to `TRUE` the target AUC is computed from `time_dose` to
+#'    `time_dose` + `time_auc` instead.
+#' @param time_dose Numeric. Time when the dose is to be given. Only used and
+#'    mandatory, when `tdm` is set to `TRUE`.
 #' @param target_auc Numeric. The target AUC.
 #' @param estim_method A character string. An estimation method to be used for
 #'    the individual parameters. The default method "map" is the Maximum A
 #'    Posteriori estimation, the method "prior" simulates from the prior
 #'    population model, and "sir" uses the Sequential Importance Resampling
 #'    algorithm to estimate the a posteriori distribution of the individual
-#'    parameters. This argument is ignored if `indiv_param` is provided.
+#'    parameters. This argument is ignored if `indiv_param` is provided, or if
+#'    `tdm` is set to `TRUE`.
 #' @param nocb A boolean. for time-varying covariates: the next observation
-#'     carried backward (nocb) interpolation style, similar to NONMEM.  If
-#'     `FALSE`, the last observation carried forward (locf) style will be used.
-#'     Defaults to `FALSE`.
+#'    carried backward (nocb) interpolation style, similar to NONMEM.  If
+#'    `FALSE`, the last observation carried forward (locf) style will be used.
+#'    Defaults to `FALSE`.
 #' @param p Numeric. The proportion of the distribution of AUC to consider for
-#'    the optimization. Mandatory for `estim_method=sir`.
+#'    the optimization. Mandatory for `estim_method=sir`. This argument is
+#'    ignored if `tdm` is set to `TRUE`.
 #' @param greater_than A boolean. If `TRUE`: targets a dose leading to a
 #'    proportion `p` of the AUCs to be greater than `target_auc`. Respectively,
-#'    lower if `FALSE`.
+#'    lower if `FALSE`. This argument is ignored if `tdm` is set to `TRUE`.
 #' @param starting_time Numeric. First point in time of the AUC, for multiple
-#'     dose regimen. The default is zero. Set equal to `time_dose` when
-#'     `tdm=TRUE`.
+#'    dose regimen. The default is zero. This argument is ignored if `tdm` is
+#'    set to `TRUE`, and `time_dose` is used as a starting point instead.
 #' @param interdose_interval Numeric. Time for the interdose interval for
-#'     multiple dose regimen. Must be provided when add_dose is used.
-#' @param add_dose Numeric. Additional doses administered at
-#'     inter-dose interval after the first dose. Optional.
+#'    multiple dose regimen. Must be provided when add_dose is used. This
+#'    argument is ignored if `tdm` is set to `TRUE`.
+#' @param add_dose Numeric. Additional doses administered at inter-dose interval
+#'    after the first dose. Optional. This argument is ignored if `tdm` is set
+#'    to `TRUE`.
 #' @param duration Numeric. Duration of infusion, for zero-order
-#'     administrations.
+#'    administrations.
 #' @param starting_dose Numeric. Starting dose for the optimization
-#'     algorithm.
+#'    algorithm.
 #' @param indiv_param Optional. A set of individual parameters : THETA,
-#'     estimates of ETA, and covariates.
+#'    estimates of ETA, and covariates. This argument is ignored if `tdm` is
+#'    set to `TRUE`.
 #'
 #' @return A list containing the following components:
 #' \describe{
@@ -330,7 +390,7 @@ poso_time_cmin <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
 #' }
 #'
 #' @examples
-#' rxode2::setRxThreads(1) # limit the number of threads
+#' rxode2::setRxThreads(2L) # limit the number of threads
 #'
 #' # model
 #' mod_run001 <- list(
@@ -383,17 +443,31 @@ poso_dose_auc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
                           p=NULL,greater_than=TRUE,starting_time=0,
                           interdose_interval=NULL,add_dose=NULL,
                           duration=0,starting_dose=100,indiv_param=NULL){
-
+  prior_model <- get_prior_model(prior_model)
   object <- posologyr(prior_model,dat,nocb)
 
-  #initialization of conc_distribution to avoid a global variable
-  auc_distribution <- 0
+  #dedicated environment to retrieve variables created inside functions
+  hand_made_env <- new.env()
 
   if(tdm){ #using TDM data
     #input validation
     if (is.null(time_dose)){
-      stop("time_dose is mandatory when tdm=TRUE",
-           call.=FALSE)
+      stop("time_dose is mandatory when tdm=TRUE")
+    }
+    if (estim_method != "map"){
+      warning("estim_method is ignored when tdm=TRUE")
+    }
+    if (starting_time != 0){
+      warning("starting_time is ignored when tdm=TRUE")
+    }
+    if (!is.null(interdose_interval)){
+      warning("interdose_interval is ignored when tdm=TRUE")
+    }
+    if (!is.null(add_dose)){
+      warning("add_dose is ignored when tdm=TRUE")
+    }
+    if (!is.null(indiv_param)){
+      warning("indiv_param is ignored when tdm=TRUE")
     }
     #clear all unused input
     estim_method <- NULL
@@ -407,7 +481,7 @@ poso_dose_auc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
     #auc starts immediately after the optimized dose
     # starting_time <- time_dose
     ending_time <- time_dose + time_auc
-    #MAP estimation of the individual PK profile from TDM data
+    #MAP estimation of the individual PK profile from the TDM data
     auc_map <- poso_estim_map(dat=dat,prior_model=prior_model,nocb=nocb)
     #individual parameters as ETA + covariates
     covar <- utils::tail(dat[,prior_model$covariates],1)
@@ -418,8 +492,7 @@ poso_dose_auc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
     last_event <- utils::tail(extended_et,1)$time
     #more input validation
     if (time_dose<=last_event){
-      stop("time_dose must occur after the last recorded dosing.",
-           call.=FALSE)
+      stop("time_dose must occur after the last recorded dosing.")
     }
     #bind the inital eventTable with enough repetitions of the last row
     # one row for dosing
@@ -451,8 +524,10 @@ poso_dose_auc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
                                            ifelse(nocb,"nocb","locf"))
 
       auc_proposal     <- max(auc_ppk_model$AUC)-min(auc_ppk_model$AUC)
-      p <- parent.frame()
-      p$auc_distribution <- auc_proposal
+      #assign the proposed AUC to a dedicated environment
+      assign("auc_estimate",auc_proposal,
+             envir = hand_made_env,
+             inherits = FALSE)
       #return the difference between the computed auc and the target
       delta_auc <- (target_auc - auc_proposal)^2
       return(delta_auc)
@@ -479,13 +554,11 @@ poso_dose_auc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
 
     if (!is.null(add_dose)){
       if (is.null(interdose_interval)){
-        stop("interdose_interval is mandatory when add_dose is used.",
-             call.=FALSE)
+        stop("interdose_interval is mandatory when add_dose is used.")
       }
       if (starting_time+time_auc>interdose_interval*add_dose){
         stop("The auc time window is outside of the dosing time range:
-           starting_time+time_auc>interdose_interval*add_dose.",
-             call.=FALSE)
+           starting_time+time_auc>interdose_interval*add_dose.")
       }
     }
     # Optimization -------------------------------------------------------------
@@ -526,9 +599,10 @@ poso_dose_auc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
         n_auc          <- length(sorted_auc)
         auc_index      <- ceiling(p * n_auc)
 
-        # assign the distribution of auc to the parent environment
-        p <- parent.frame()
-        p$auc_distribution <- sorted_auc
+        #assign the distribution of auc to a dedicated environment
+        assign("auc_estimate",sorted_auc,
+               envir = hand_made_env,
+               inherits = FALSE)
 
         if (greater_than){
           auc_proposal <- sorted_auc[n_auc - auc_index]
@@ -537,17 +611,16 @@ poso_dose_auc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
         }
       } else {
         auc_proposal  <- max(auc_ppk_model$AUC)-min(auc_ppk_model$AUC)
-        p <- parent.frame()
-        p$auc_distribution <- auc_proposal
+        #assign the proposed AUC to a dedicated environment
+        assign("auc_estimate",auc_proposal,
+               envir = hand_made_env,
+               inherits = FALSE)
       }
 
       #return the difference between the computed AUC and the target
       delta_auc<-(target_auc - auc_proposal)^2
       return(delta_auc)
     }
-
-    #initialization of auc_distribution to avoid a global variable
-    auc_distribution <- 0
 
     optim_dose_auc <- stats::optim(starting_dose,err_dose,time_auc=time_auc,
                                    starting_time=starting_time,
@@ -564,7 +637,7 @@ poso_dose_auc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
 
   dose_auc <- list(dose=optim_dose_auc$par,
                    type_of_estimate=type_of_estimate,
-                   auc_estimate=auc_distribution,
+                   auc_estimate=hand_made_env$auc_estimate,
                    indiv_param=indiv_param)
   return(dose_auc)
 }
@@ -582,40 +655,49 @@ poso_dose_auc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
 #'    model, a list of six objects.
 #' @param tdm A boolean. If `TRUE`: estimates the optimal dose for a selected
 #'    target concentration at a selected point in time following the events from
-#'     `dat`, and using Maximum A Posteriori estimation. If `FALSE` : performs
-#'    the estimation in a simulated scenario defined by the remaining
-#'    parameters.
+#'     `dat`, and using Maximum A Posteriori estimation. Setting `tdm` to `TRUE` causes the
+#'    following to occur:
+#'
+#'    * the arguments `estim_method`, `p`, `greater_than`, `interdose_interval`,
+#'    `add_dose`, `indiv_param` and `starting_time` are ignored.
+#'
 #' @param time_c Numeric. Point in time for which the dose is to be
 #'     optimized.
 #' @param time_dose Numeric. Time when the dose is to be given.
 #' @param target_conc Numeric. Target concentration.
-#' @param endpoint Character. The endpoint of the prior model to be optimised for.
-#'    The default is "Cc", which is the central concentration.
+#' @param endpoint Character. The endpoint of the prior model to be optimised
+#'    for. The default is "Cc", which is the central concentration.
 #' @param estim_method A character string. An estimation method to be used for
 #'    the individual parameters. The default method "map" is the Maximum A
 #'    Posteriori estimation, the method "prior" simulates from the prior
 #'    population model, and "sir" uses the Sequential Importance Resampling
 #'    algorithm to estimate the a posteriori distribution of the individual
-#'    parameters. This argument is ignored if `indiv_param` is provided.
+#'    parameters. This argument is ignored if `indiv_param` is provided or if
+#'    `tdm` is set to `TRUE`.
 #' @param nocb A boolean. for time-varying covariates: the next observation
 #'     carried backward (nocb) interpolation style, similar to NONMEM.  If
 #'     `FALSE`, the last observation carried forward (locf) style will be used.
 #'     Defaults to `FALSE`.
 #' @param p Numeric. The proportion of the distribution of concentrations to
-#'    consider for the optimization. Mandatory for `estim_method=sir`.
+#'    consider for the optimization. Mandatory for `estim_method=sir`. This
+#'    argument is ignored if `tdm` is set to `TRUE`.
 #' @param greater_than A boolean. If `TRUE`: targets a dose leading to a
 #'    proportion `p` of the concentrations to be greater than `target_conc`.
-#'    Respectively, lower if `FALSE`.
+#'    Respectively, lower if `FALSE`. This argument is ignored if `tdm` is
+#'    set to `TRUE`.
 #' @param starting_dose Numeric. Starting dose for the optimization
 #'     algorithm.
-#' @param add_dose Numeric. Additional doses administered at
-#'     inter-dose interval after the first dose. Optional.
+#' @param add_dose Numeric. Additional doses administered at inter-dose interval
+#'     after the first dose. Optional. This argument is ignored if `tdm` is set
+#'     to `TRUE`.
 #' @param interdose_interval Numeric. Time for the interdose interval
-#'     for multiple dose regimen. Must be provided when add_dose is used.
+#'     for multiple dose regimen. Must be provided when add_dose is used. This
+#'     argument is ignored if `tdm` is set to `TRUE`.
 #' @param duration Numeric. Duration of infusion, for zero-order
 #'     administrations.
 #' @param indiv_param Optional. A set of individual parameters : THETA,
-#'     estimates of ETA, and covariates.
+#'     estimates of ETA, and covariates. This argument is ignored if `tdm` is
+#'     set to `TRUE`.
 #'
 #' @return A list containing the following components:
 #' \describe{
@@ -631,7 +713,7 @@ poso_dose_auc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
 #' }
 #'
 #' @examples
-#' rxode2::setRxThreads(1) # limit the number of threads
+#' rxode2::setRxThreads(2L) # limit the number of threads
 #'
 #' # model
 #' mod_run001 <- list(
@@ -685,17 +767,31 @@ poso_dose_conc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
                            greater_than=TRUE,starting_dose=100,
                            interdose_interval=NULL,add_dose=NULL,duration=0,
                            indiv_param=NULL){
+  prior_model <- get_prior_model(prior_model)
   object <- posologyr(prior_model,dat,nocb)
+
+  #dedicated environment to retrieve variables created inside functions
+  hand_made_env <- new.env()
 
   if(tdm){ #using TDM data
     #input validation
     if (time_c<=time_dose){
-      stop("time_c cannot be before time_dose.",
-           call.=FALSE)
+      stop("time_c cannot be before time_dose.")
     }
     if (is.null(time_dose)){
-      stop("time_dose is mandatory when tdm=TRUE",
-           call.=FALSE)
+      stop("time_dose is mandatory when tdm=TRUE")
+    }
+    if (estim_method != "map"){
+      warning("estim_method is ignored when tdm=TRUE")
+    }
+    if (!is.null(interdose_interval)){
+      warning("interdose_interval is ignored when tdm=TRUE")
+    }
+    if (!is.null(add_dose)){
+      warning("add_dose is ignored when tdm=TRUE")
+    }
+    if (!is.null(indiv_param)){
+      warning("indiv_param is ignored when tdm=TRUE")
     }
     #clear all unused input
     estim_method <- NULL
@@ -705,7 +801,7 @@ poso_dose_conc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
     interdose_interval <- NULL
     indiv_param <- NULL
     select_proposal_from_distribution <- FALSE
-    #MAP estimation of the individual PK profile from TDM data
+    #MAP estimation of the individual PK profile from the TDM data
     ctime_map <- poso_estim_map(dat=dat,prior_model=prior_model,nocb=nocb)
     #individual parameters as ETA + covariates
     covar <- utils::tail(dat[,prior_model$covariates],1)
@@ -716,8 +812,7 @@ poso_dose_conc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
     last_event <- utils::tail(extended_et,1)$time
     #more input validation
     if (time_dose<=last_event){
-      stop("time_dose must occur after the last recorded dosing.",
-           call.=FALSE)
+      stop("time_dose must occur after the last recorded dosing.")
     }
     #bind the inital eventTable with enough repetitions of the last row
     # one row for dosing
@@ -743,14 +838,14 @@ poso_dose_conc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
                                            ifelse(nocb,"nocb","locf"))
 
       conc_proposal     <- ctime_ppk_model[,endpoint]
-      p <- parent.frame()
-      p$conc_distribution <- conc_proposal
+      #assign the proposed concentration to a dedicated environment
+      assign("conc_distribution",conc_proposal,
+             envir = hand_made_env,
+             inherits = FALSE)
       #return the difference between the computed ctime and the target
       delta_conc <- (target_conc - conc_proposal)^2
       return(delta_conc)
     }
-    #initialization of conc_distribution to avoid a global variable
-    conc_distribution <- 0
 
     optim_dose_conc <- stats::optim(starting_dose,err_dose_tdm,
                                     time_dose=time_dose,target_conc=target_conc,
@@ -772,13 +867,11 @@ poso_dose_conc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
     #Input validation
     if (!is.null(add_dose)){
       if (is.null(interdose_interval)){
-        stop("interdose_interval is mandatory when add_dose is used.",
-             call.=FALSE)
+        stop("interdose_interval is mandatory when add_dose is used.")
       }
       if (time_c>(add_dose*interdose_interval)){
         stop("The target time is outside of the dosing time range:
-           time_c>(add_dose*interdose_interval).",
-             call.=FALSE)
+           time_c>(add_dose*interdose_interval).")
       }
     }
     err_dose <- function(dose,time_c,target_conc,prior_model,
@@ -807,9 +900,10 @@ poso_dose_conc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
         n_conc          <- length(sorted_conc)
         conc_index      <- ceiling(p * n_conc)
 
-        # assign the distribution of concentrations to the parent environment
-        p <- parent.frame()
-        p$conc_distribution <- sorted_conc
+        #assign the distribution of concentrations to a dedicated environment
+        assign("conc_distribution",sorted_conc,
+               envir = hand_made_env,
+               inherits = FALSE)
 
         if (greater_than){
           conc_proposal <- sorted_conc[n_conc - conc_index]
@@ -818,16 +912,16 @@ poso_dose_conc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
         }
       } else {
         conc_proposal     <- ctime_ppk_model[,endpoint]
-        p <- parent.frame()
-        p$conc_distribution <- conc_proposal
+        #assign the proposed concentration to a dedicated environment
+        assign("conc_distribution",conc_proposal,
+               envir = hand_made_env,
+               inherits = FALSE)
       }
 
       #return the difference between the computed ctime and the target
       delta_conc <- (target_conc - conc_proposal)^2
       return(delta_conc)
     }
-    #initialization of conc_distribution to avoid a global variable
-    conc_distribution <- 0
 
     optim_dose_conc <- stats::optim(starting_dose,err_dose,time_c=time_c,
                                     target_conc=target_conc,prior_model=object,
@@ -836,6 +930,8 @@ poso_dose_conc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
                                     duration=duration,indiv_param=indiv_param,
                                     method="Brent",lower=0, upper=1e5)
   }
+
+  conc_distribution <- hand_made_env$conc_distribution
 
   ifelse(select_proposal_from_distribution,
          type_of_estimate <-"distribution",
@@ -903,7 +999,7 @@ poso_dose_conc <- function(dat=NULL,prior_model=NULL,tdm=FALSE,
 #' }
 #'
 #' @examples
-#' rxode2::setRxThreads(1) # limit the number of threads
+#' rxode2::setRxThreads(2L) # limit the number of threads
 #'
 #' # model
 #' mod_run001 <- list(
@@ -955,7 +1051,13 @@ poso_inter_cmin <- function(dat=NULL,prior_model=NULL,dose,target_cmin,
                             endpoint="Cc",estim_method="map",nocb=FALSE,p=NULL,
                             greater_than=TRUE,starting_interval=12,add_dose=10,
                             duration=0,indiv_param=NULL){
+
+  prior_model <- get_prior_model(prior_model)
+
   object <- posologyr(prior_model,dat,nocb)
+
+  #dedicated environment to retrieve variables created inside functions
+  hand_made_env <- new.env()
 
   read_input  <- read_optim_distribution_input(dat=dat,
                                                prior_model=prior_model,
@@ -985,9 +1087,10 @@ poso_inter_cmin <- function(dat=NULL,prior_model=NULL,dose,target_cmin,
       n_cmin          <- length(sorted_cmin)
       cmin_index      <- ceiling(p * n_cmin)
 
-      # assign the distribution of cmin to the parent environment
-      p <- parent.frame()
-      p$cmin_distribution <- sorted_cmin
+      #assign the estimated cmin to a dedicated environment
+      assign("cmin_estimate",sorted_cmin,
+             envir = hand_made_env,
+             inherits = FALSE)
 
       if (greater_than){
         cmin_proposal <- sorted_cmin[n_cmin - cmin_index]
@@ -996,8 +1099,10 @@ poso_inter_cmin <- function(dat=NULL,prior_model=NULL,dose,target_cmin,
       }
     } else {
       cmin_proposal     <-  cmin_ppk_model[,endpoint]
-      p <- parent.frame()
-      p$cmin_distribution <- cmin_proposal
+      #assign the estimated cmin to a dedicated environment
+      assign("cmin_estimate",cmin_proposal,
+             envir = hand_made_env,
+             inherits = FALSE)
     }
 
     #return the difference between the computed cmin and the target,
@@ -1005,9 +1110,6 @@ poso_inter_cmin <- function(dat=NULL,prior_model=NULL,dose,target_cmin,
     delta_cmin <- ((target_cmin - cmin_proposal)/cmin_proposal)^2
     return(delta_cmin)
   }
-
-  #initialization of cmin_distribution to avoid a global variable
-  cmin_distribution <- 0
 
   #cf. optim documentation: optim will work with one-dimensional pars, but the
   # default method does not work well (and will warn). Method "Brent" uses
@@ -1024,7 +1126,7 @@ poso_inter_cmin <- function(dat=NULL,prior_model=NULL,dose,target_cmin,
 
   inter_cmin <- list(interval=optim_inter_cmin$par,
                     type_of_estimate=type_of_estimate,
-                    conc_estimate=cmin_distribution,
+                    conc_estimate=hand_made_env$cmin_estimate,
                     indiv_param=indiv_param)
 
   return(inter_cmin)
@@ -1041,9 +1143,10 @@ read_optim_distribution_input <- function(dat,prior_model,
                                           nocb,object,p,
                                           estim_method,
                                           indiv_param){
+  prior_model <- get_prior_model(prior_model)
   if (is.null(indiv_param)){ #theta_pop + estimates of eta + covariates
     if (estim_method=="map"){
-      model_map   <- poso_estim_map(dat,prior_model,nocb=nocb,return_model=TRUE)
+      model_map <- poso_estim_map(dat,prior_model,nocb=nocb,return_model=TRUE)
       if(is.null(object$covariates)){
         indiv_param <- model_map$model$params
       } else {

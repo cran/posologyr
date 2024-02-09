@@ -1,9 +1,11 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
 set.seed(1)
+library(rxode2)
+setRxThreads(2L)  # limit the number of threads
 
 ## ----setup--------------------------------------------------------------------
 library(posologyr)

@@ -32,9 +32,12 @@ model, a list of six objects.}
 
 \item{tdm}{A boolean. If \code{TRUE}: estimates the optimal dose for a selected
 target concentration at a selected point in time following the events from
-\code{dat}, and using Maximum A Posteriori estimation. If \code{FALSE} : performs
-the estimation in a simulated scenario defined by the remaining
-parameters.}
+\code{dat}, and using Maximum A Posteriori estimation. Setting \code{tdm} to \code{TRUE} causes the
+following to occur:
+\itemize{
+\item the arguments \code{estim_method}, \code{p}, \code{greater_than}, \code{interdose_interval},
+\code{add_dose}, \code{indiv_param} and \code{starting_time} are ignored.
+}}
 
 \item{time_c}{Numeric. Point in time for which the dose is to be
 optimized.}
@@ -43,15 +46,16 @@ optimized.}
 
 \item{target_conc}{Numeric. Target concentration.}
 
-\item{endpoint}{Character. The endpoint of the prior model to be optimised for.
-The default is "Cc", which is the central concentration.}
+\item{endpoint}{Character. The endpoint of the prior model to be optimised
+for. The default is "Cc", which is the central concentration.}
 
 \item{estim_method}{A character string. An estimation method to be used for
 the individual parameters. The default method "map" is the Maximum A
 Posteriori estimation, the method "prior" simulates from the prior
 population model, and "sir" uses the Sequential Importance Resampling
 algorithm to estimate the a posteriori distribution of the individual
-parameters. This argument is ignored if \code{indiv_param} is provided.}
+parameters. This argument is ignored if \code{indiv_param} is provided or if
+\code{tdm} is set to \code{TRUE}.}
 
 \item{nocb}{A boolean. for time-varying covariates: the next observation
 carried backward (nocb) interpolation style, similar to NONMEM.  If
@@ -59,26 +63,31 @@ carried backward (nocb) interpolation style, similar to NONMEM.  If
 Defaults to \code{FALSE}.}
 
 \item{p}{Numeric. The proportion of the distribution of concentrations to
-consider for the optimization. Mandatory for \code{estim_method=sir}.}
+consider for the optimization. Mandatory for \code{estim_method=sir}. This
+argument is ignored if \code{tdm} is set to \code{TRUE}.}
 
 \item{greater_than}{A boolean. If \code{TRUE}: targets a dose leading to a
 proportion \code{p} of the concentrations to be greater than \code{target_conc}.
-Respectively, lower if \code{FALSE}.}
+Respectively, lower if \code{FALSE}. This argument is ignored if \code{tdm} is
+set to \code{TRUE}.}
 
 \item{starting_dose}{Numeric. Starting dose for the optimization
 algorithm.}
 
 \item{interdose_interval}{Numeric. Time for the interdose interval
-for multiple dose regimen. Must be provided when add_dose is used.}
+for multiple dose regimen. Must be provided when add_dose is used. This
+argument is ignored if \code{tdm} is set to \code{TRUE}.}
 
-\item{add_dose}{Numeric. Additional doses administered at
-inter-dose interval after the first dose. Optional.}
+\item{add_dose}{Numeric. Additional doses administered at inter-dose interval
+after the first dose. Optional. This argument is ignored if \code{tdm} is set
+to \code{TRUE}.}
 
 \item{duration}{Numeric. Duration of infusion, for zero-order
 administrations.}
 
 \item{indiv_param}{Optional. A set of individual parameters : THETA,
-estimates of ETA, and covariates.}
+estimates of ETA, and covariates. This argument is ignored if \code{tdm} is
+set to \code{TRUE}.}
 }
 \value{
 A list containing the following components:
@@ -101,7 +110,7 @@ of individual parameters, a selected point in time, and a target
 concentration.
 }
 \examples{
-rxode2::setRxThreads(1) # limit the number of threads
+rxode2::setRxThreads(2L) # limit the number of threads
 
 # model
 mod_run001 <- list(
