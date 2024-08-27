@@ -1,3 +1,25 @@
+# posologyr v1.2.6
+
+* Use undirected quotes when quoting in the DESCRIPTION (as requested by CRAN)
+* CRAN test times have been reduced by using an environment variable to identify the development machine, which now determines whether less critical tests are executed (as requested by CRAN)
+
+# posologyr v1.2.5
+
+## Additional feature
+* The route of administration (i.e. the compartment in which the drug is to be administered) can now be specified in `poso_time_cmin()`, `poso_dose_conc()`, `poso_dose_auc()` and `poso_inter_cmin()`.
+* `poso_simu_pop()` provides an rxode2 model using the simulated ETA and the input dataset,
+with interpolation of covariates, to make plotting easier
+
+## Documentation
+* The README illustrates a simple example of dose adaptation
+* `vignette("route_of_administration")` shows how to select a route of administration for optimal dosing
+* `vignette("population_models")` describes the structure of prior population models written as model functions which can be parsed by `rxode2` and used by `posologyr`
+* `vignette("posologyr_user_defined_models")` is renamed `vignette("classic_posologyr_models")`
+* Examples use `rxode2` model functions
+
+## Bug fix
+* Fix a bug where `poso_estim_map()`, `poso_estim_sir()` and `poso_simu_pop()` failed for models featuring a single parameter with IIV.
+
 # posologyr v1.2.4
 
 * Add ability to use rxode2 ui models for the `poso_*` functions.  Once the model has been parsed by `rxode2()` with this package the `model$posologyr` gives the list needed for `poso_*` functions

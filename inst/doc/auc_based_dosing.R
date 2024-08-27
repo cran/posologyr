@@ -11,37 +11,37 @@ setRxThreads(2L)  # limit the number of threads
 library(posologyr)
 
 ## ----model--------------------------------------------------------------------
-mod_vancomycin_Goti2018 <- list(
-  ppk_model   = rxode2::rxode({
-    centr(0) = 0;
-    TVCl  = THETA_Cl*(CLCREAT/120)^0.8*(0.7^DIAL);
-    TVVc  = THETA_Vc*(WT/70)          *(0.5^DIAL);
-    TVVp  = THETA_Vp;
-    TVQ   = THETA_Q;
-    Cl    = TVCl*exp(ETA_Cl);
-    Vc    = TVVc*exp(ETA_Vc);
-    Vp    = TVVp*exp(ETA_Vp);
-    Q     = TVQ;
-    ke    = Cl/Vc;
-    k12   = Q/Vc;
-    k21   = Q/Vp;
-    Cc    = centr/Vc;
-    d/dt(centr)  = - ke*centr - k12*centr + k21*periph;
-    d/dt(periph) =            + k12*centr - k21*periph;
-    d/dt(AUC)    =   Cc;
-  }),
-  error_model = function(f,sigma){
-    g <- sigma[1] + sigma[2]*f
-    return(g)
-  },
-  theta = c(THETA_Cl=4.5, THETA_Vc=58.4, THETA_Vp=38.4,THETA_Q=6.5),
-  omega = lotri::lotri({ETA_Cl + ETA_Vc + ETA_Vp + ETA_Q ~
-      c(0.147,
-        0     ,   0.510,
-        0     ,       0,   0.282,
-        0     ,       0,       0,    0)}),
-  covariates  = c("CLCREAT","WT","DIAL"),
-  sigma       = c(additive_a = 3.4, proportional_b = 0.227))
+mod_vancomycin_Goti2018 <- function() {
+    ini({
+      THETA_Cl <- 4.5
+      THETA_Vc <- 58.4
+      THETA_Vp <- 38.4
+      THETA_Q <- 6.5
+      ETA_Cl ~ 0.147
+      ETA_Vc ~ 0.510
+      ETA_Vp ~ 0.282
+      add.sd <- 3.4
+      prop.sd <- 0.227
+    })
+    model({
+      TVCl  = THETA_Cl*(CLCREAT/120)^0.8*(0.7^DIAL);
+      TVVc  = THETA_Vc*(WT/70)          *(0.5^DIAL);
+      TVVp  = THETA_Vp;
+      TVQ   = THETA_Q;
+      Cl    = TVCl*exp(ETA_Cl);
+      Vc    = TVVc*exp(ETA_Vc);
+      Vp    = TVVp*exp(ETA_Vp);
+      Q     = TVQ;
+      ke    = Cl/Vc;
+      k12   = Q/Vc;
+      k21   = Q/Vp;
+      Cc    = centr/Vc;
+      d/dt(centr)  = - ke*centr - k12*centr + k21*periph;
+      d/dt(periph) =            + k12*centr - k21*periph;
+      d/dt(AUC) <- Cc
+      Cc ~ add(add.sd) + prop(prop.sd) + combined1()
+    })
+  }
 
 ## ----tdm_patientB-------------------------------------------------------------
 df_patientB <- data.frame(ID=1,TIME=c(0.0,13.0,24.2,48),

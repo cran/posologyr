@@ -2,8 +2,8 @@
 % Please edit documentation in R/dosing_optim.R
 \name{poso_dose_auc}
 \alias{poso_dose_auc}
-\title{Estimate the optimal dose for a selected target area under the
-time-concentration curve (AUC)}
+\title{Estimate the dose needed to reach a target area under the concentration-time
+curve (AUC)}
 \usage{
 poso_dose_auc(
   dat = NULL,
@@ -11,6 +11,7 @@ poso_dose_auc(
   tdm = FALSE,
   time_auc,
   time_dose = NULL,
+  cmt_dose = 1,
   target_auc,
   estim_method = "map",
   nocb = FALSE,
@@ -49,6 +50,10 @@ When \code{tdm} is set to \code{TRUE} the target AUC is computed from \code{time
 
 \item{time_dose}{Numeric. Time when the dose is to be given. Only used and
 mandatory, when \code{tdm} is set to \code{TRUE}.}
+
+\item{cmt_dose}{Character or numeric. The compartment in which the dose is
+to be administered. Must match one of the compartments in the prior model.
+Defaults to 1.}
 
 \item{target_auc}{Numeric. The target AUC.}
 
@@ -109,45 +114,41 @@ covariates}
 }
 }
 \description{
-Estimates the optimal dose for a selected target area under the
-time-concentration curve (AUC) given a population pharmacokinetic
-model, a set of individual parameters, and a target AUC.
+estimates the dose needed to reach a target area under the concentration-time
+curve (AUC) given a population pharmacokinetic model, a set of individual
+parameters, and a target AUC.
 }
 \examples{
 rxode2::setRxThreads(2L) # limit the number of threads
 
 # model
-mod_run001 <- list(
-ppk_model = rxode2::rxode({
-  centr(0) = 0;
-  depot(0) = 0;
+mod_run001 <- function() {
+  ini({
+    THETA_Cl <- 4.0
+    THETA_Vc <- 70.0
+    THETA_Ka <- 1.0
+    ETA_Cl ~ 0.2
+    ETA_Vc ~ 0.2
+    ETA_Ka ~ 0.2
+    prop.sd <- sqrt(0.05)
+  })
+  model({
+    TVCl <- THETA_Cl
+    TVVc <- THETA_Vc
+    TVKa <- THETA_Ka
 
-  TVCl = THETA_Cl;
-  TVVc = THETA_Vc;
-  TVKa = THETA_Ka;
+    Cl <- TVCl*exp(ETA_Cl)
+    Vc <- TVVc*exp(ETA_Vc)
+    Ka <- TVKa*exp(ETA_Ka)
 
-  Cl = TVCl*exp(ETA_Cl);
-  Vc = TVVc*exp(ETA_Vc);
-  Ka = TVKa*exp(ETA_Ka);
+    K20 <- Cl/Vc
+    Cc <- centr/Vc
 
-  K20 = Cl/Vc;
-  Cc = centr/Vc;
-
-  d/dt(depot) = -Ka*depot;
-  d/dt(centr) = Ka*depot - K20*centr;
-  d/dt(AUC) = Cc;
-}),
-error_model = function(f,sigma) {
-  dv <- cbind(f,1)
-  g <- diag(dv\%*\%sigma\%*\%t(dv))
-  return(sqrt(g))
-},
-theta = c(THETA_Cl=4.0, THETA_Vc=70.0, THETA_Ka=1.0),
-omega = lotri::lotri({ETA_Cl + ETA_Vc + ETA_Ka ~
-    c(0.2,
-      0, 0.2,
-      0, 0, 0.2)}),
-sigma = lotri::lotri({prop + add ~ c(0.05,0.0,0.00)}))
+    d/dt(depot) = -Ka*depot
+    d/dt(centr) = Ka*depot - K20*centr
+    Cc ~ prop(prop.sd)
+  })
+}
 # df_patient01: event table for Patient01, following a 30 minutes intravenous
 # infusion
 df_patient01 <- data.frame(ID=1,

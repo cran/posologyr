@@ -12,7 +12,7 @@
 
 
 
-<title>User defined models</title>
+<title>Classic posologyr models</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -336,24 +336,29 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 
 
-<h1 class="title toc-ignore">User defined models</h1>
+<h1 class="title toc-ignore">Classic posologyr models</h1>
 
 
 
 <div id="introduction" class="section level1">
 <h1>Introduction</h1>
-<p>This describes the structure of prior models usable by
-<code>posologyr</code> and illustrates how to define new models from
-published population pharmacokinetic (ppk) models.</p>
+<p>Originally, <code>posologyr</code> models were R lists;
+<code>posologyr</code> still uses this format internally, but it’s often
+more useful to use the <code>rxode2</code> syntax, or even to import a
+NONMEM model using the <code>nonmem2rx</code> package.</p>
+<p>This article describes the structure of classical
+<code>posologyr</code> models. It illustrates how to define them from
+published population models.</p>
 </div>
 <div id="structure" class="section level1">
 <h1>Structure</h1>
-<p>A <code>posologyr</code> prior ppk model is a named R list:</p>
+<p>A <code>posologyr</code> model is a named R list of the following
+items:</p>
 <dl>
 <dt>ppk_model</dt>
 <dd>
-A rxode2 model implementing the structural population pharmacokinetics
-model with the individual model (i.e. the model of inter-individual
+A <code>rxode2</code> model implementing the structural population model
+with the individual model (i.e. the model of inter-individual
 variability) and the covariates
 </dd>
 <dt>error_model</dt>
@@ -389,18 +394,29 @@ A character vector of the covariates of the model
 </div>
 <div id="definition-of-a-prior-model-through-an-example" class="section level1">
 <h1>Definition of a prior model through an example</h1>
-<p>The model to implement is a two-compartment ppk model of vancomycin
-derived from a retrospective study with a cohort of over 1,800 patients
-(<a href="https://doi.org/10.1097/FTD.0000000000000490">doi:10.1097/FTD.0000000000000490</a>).</p>
+<p>The model in this example is a two-compartment ppk model of
+vancomycin derived from a retrospective study with a cohort of over
+1,800 patients (<a href="https://doi.org/10.1097/FTD.0000000000000490">doi:10.1097/FTD.0000000000000490</a>).</p>
 <div id="ppk_model" class="section level2">
 <h2>ppk_model</h2>
-<p>A model defined in the <code>rxode2::rxode()</code> mini-language.
+<p>A model defined in the <code>rxode2</code> mini-language.
 <code>posologyr</code> needs a structural model, defined with either
-differential or algebraic equations, and an individual model.</p>
-<p>The concentration in the central compartment <em>must</em> be named
-Cc.</p>
+differential or algebraic equations, and an individual model. Depending
+on model type, naming conventions are more or less strict:</p>
+<p><strong>Single endpoint model</strong> (e.g. most pharmacokinetic
+models)</p>
+<ul>
+<li>The concentration in the central compartment <em>must</em> be named
+Cc.</li>
+</ul>
+<p><strong>Multiple endpoints model</strong> (eg. PK-PD,
+parent-metabolite, blood-urine…)</p>
+<ul>
+<li>The names of the endpoints are flexible, but they must be consistent
+with the names of the error models and their parameters.</li>
+</ul>
 <p>The differential function <code>d/dt(AUC) =  Cc;</code> is needed for
-the optimisation function <code>poso_dose_auc()</code>.</p>
+the optimization function <code>poso_dose_auc()</code>.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>ppk_model   <span class="ot">=</span> rxode2<span class="sc">::</span><span class="fu">rxode</span>({</span>
 <span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>    <span class="fu">centr</span>(<span class="dv">0</span>) <span class="ot">=</span> <span class="dv">0</span>;</span>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>    TVCl  <span class="ot">=</span> THETA_Cl<span class="sc">*</span>(CLCREAT<span class="sc">/</span><span class="dv">120</span>)<span class="sc">^</span><span class="fl">0.8</span><span class="sc">*</span>(<span class="fl">0.7</span><span class="sc">^</span>DIAL);</span>
@@ -418,28 +434,43 @@ the optimisation function <code>poso_dose_auc()</code>.</p>
 <span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a>    d<span class="sc">/</span><span class="fu">dt</span>(centr)  <span class="ot">=</span> <span class="sc">-</span> ke<span class="sc">*</span>centr <span class="sc">-</span> k12<span class="sc">*</span>centr <span class="sc">+</span> k21<span class="sc">*</span>periph;</span>
 <span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a>    d<span class="sc">/</span><span class="fu">dt</span>(periph) <span class="ot">=</span>            <span class="sc">+</span> k12<span class="sc">*</span>centr <span class="sc">-</span> k21<span class="sc">*</span>periph;</span>
 <span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a>    d<span class="sc">/</span><span class="fu">dt</span>(AUC)    <span class="ot">=</span>   Cc;</span>
-<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a>  })</span></code></pre></div>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a>  })</span>
+<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="co">#&gt; using C compiler: ‘gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0’</span></span></code></pre></div>
 </div>
 <div id="error_model" class="section level2">
 <h2>error_model</h2>
 <p>A function of the residual error model, taking two arguments: the
 simulated concentrations, and a vector <code>sigma</code> of the
 estimates of the parameters for the residual error model.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>error_model <span class="ot">&lt;-</span> <span class="cf">function</span>(f,sigma){     <span class="co">#additive model if sigma[2] == 0</span></span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  g <span class="ot">&lt;-</span> sigma[<span class="dv">1</span>] <span class="sc">+</span> sigma[<span class="dv">2</span>]<span class="sc">*</span>f          <span class="co">#proportional model if sigma[1] == 0</span></span>
-<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="fu">return</span>(g)</span>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>error_model <span class="ot">&lt;-</span> <span class="cf">function</span>(f,sigma){           <span class="co">#additive model if sigma[2] == 0</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  g <span class="ot">&lt;-</span> sigma[<span class="dv">1</span>]<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> (sigma[<span class="dv">2</span>]<span class="sc">^</span><span class="dv">2</span>)<span class="sc">*</span>(f<span class="sc">^</span><span class="dv">2</span>)      <span class="co">#proportional model if sigma[1] == 0</span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">sqrt</span>(g))</span>
 <span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>}</span></code></pre></div>
-<p>Alternatively, the function can take the simulated concentrations,
-and a matrix <code>sigma</code> of the estimates of the parameters for
-the residual error model, as in the following example:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>error_model <span class="ot">&lt;-</span> <span class="cf">function</span>(f,sigma){</span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  dv <span class="ot">&lt;-</span> <span class="fu">cbind</span>(f,<span class="dv">1</span>)</span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  g  <span class="ot">&lt;-</span> <span class="fu">diag</span>(dv<span class="sc">%*%</span>sigma<span class="sc">%*%</span><span class="fu">t</span>(dv))     <span class="co">#sigma is the square matrix of the residual</span></span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">sqrt</span>(g))                    <span class="co">#errors</span></span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>}</span></code></pre></div>
-<p>For multiple endpoint models, <code>error_model</code> must be a
+<p>For multiple endpoints models, <code>error_model</code> must be a
 named list with a function for each endpoint
 <code>vignette(&quot;multiple_endpoints&quot;)</code>.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>error_model <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>    <span class="at">first_endpoint =</span> <span class="cf">function</span>(f,sigma){</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>      g <span class="ot">&lt;-</span> sigma[<span class="dv">1</span>]<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> (sigma[<span class="dv">2</span>]<span class="sc">^</span><span class="dv">2</span>)<span class="sc">*</span>(f<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>      <span class="fu">return</span>(<span class="fu">sqrt</span>(g))</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>    },</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>    <span class="at">second_endpoint =</span> <span class="cf">function</span>(f,sigma){</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>      g <span class="ot">&lt;-</span> sigma[<span class="dv">1</span>]<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> (sigma[<span class="dv">2</span>]<span class="sc">^</span><span class="dv">2</span>)<span class="sc">*</span>(f<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>      <span class="fu">return</span>(<span class="fu">sqrt</span>(g))</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>    }</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  )</span></code></pre></div>
+<p>To obtain individual estimations for multiple endpoints, consistency
+in the naming convention must be maintained across the following:</p>
+<ul>
+<li>The dataset (using the column DVID).</li>
+<li>The residual error models (stored in a named list).</li>
+<li>The standard deviation of the residual error models (stored in a
+named list, see <strong>sigma</strong>).</li>
+</ul>
+<p>As many residual error models as desired can be defined. Each model
+defined in the named list error_models must have its counterpart in the
+named list <code>sigma</code>, and the names must match those defined in
+the <code>DVID</code> column of the dataset.</p>
 </div>
 <div id="theta" class="section level2">
 <h2>theta</h2>
@@ -460,10 +491,10 @@ under different parameterizations depending on the authors.</p>
 <li>Standard deviation (SD): the square root of the variance, as
 returned by Monolix</li>
 <li>Coefficient of variation (CV): calculated as
-<code>sqrt(exp(SD^2)-1)</code>, the standard deviation can be computed
-back with <code>sqrt(log((CV^2)+1))</code></li>
-<li>Full covariance matrix: the easiest to reuse, but rarely seen in
-articles</li>
+<code>sqrt(exp(SD^2)-1)</code>, the variance can be computed back with
+<code>log((CV^2)+1)</code></li>
+<li>Full covariance matrix: the easiest to reuse, but less common in the
+literature</li>
 </ul>
 <p>In the case of the <a href="https://doi.org/10.1097/FTD.0000000000000490">vancomycin
 model</a>, the estimates of between subject variability (BSV) are given
@@ -474,7 +505,6 @@ as CV%. They must be converted to variances prior to their inclusion in
 <tr class="header">
 <th>Parameter</th>
 <th align="center">CV% (from the article)</th>
-<th align="center">SD</th>
 <th align="center">Variance = SD^2</th>
 </tr>
 </thead>
@@ -482,19 +512,16 @@ as CV%. They must be converted to variances prior to their inclusion in
 <tr class="odd">
 <td>BSV on CL</td>
 <td align="center">39.8</td>
-<td align="center">0.383</td>
 <td align="center">0.147</td>
 </tr>
 <tr class="even">
 <td>BSV on Vc</td>
 <td align="center">81.6</td>
-<td align="center">0.714</td>
 <td align="center">0.510</td>
 </tr>
 <tr class="odd">
 <td>BSV on Vp</td>
 <td align="center">57.1</td>
-<td align="center">0.531</td>
 <td align="center">0.282</td>
 </tr>
 </tbody>
@@ -504,7 +531,7 @@ as CV%. They must be converted to variances prior to their inclusion in
 <span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>                            <span class="dv">0</span>    ,  <span class="fl">0.510</span> ,</span>
 <span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>                            <span class="dv">0</span>    ,  <span class="dv">0</span>     ,   <span class="fl">0.282</span>,</span>
 <span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>                            <span class="dv">0</span>    ,  <span class="dv">0</span>     ,   <span class="dv">0</span>    ,    <span class="dv">0</span>)})</span></code></pre></div>
-<p>The estimates of covariance (off diagonal) are sometimes given as
+<p>The estimates of covariance (off-diagonal) are sometimes given as
 coefficients of correlation between ETAs. The covariance between ETA_a
 and ETA_b can be computed with the following product:
 <code>standard_deviation(ETA_a) * standard_deviation(ETA_b) * correlation(ETA_a and ETA_b)</code>.</p>
@@ -512,16 +539,15 @@ and ETA_b can be computed with the following product:
 </div>
 <div id="sigma" class="section level2">
 <h2>sigma</h2>
-<p>The estimates of the parameters for the residual error model, either
-in a vector:</p>
+<p>The estimates of the parameters for the residual error model on the
+standard deviation scale, either in a vector:</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>sigma       <span class="ot">=</span> <span class="fu">c</span>(<span class="at">additive_a =</span> <span class="fl">3.4</span>, <span class="at">proportional_b =</span> <span class="fl">0.227</span>)</span></code></pre></div>
 <p>in a matrix:</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>sigma       <span class="ot">=</span> lotri<span class="sc">::</span><span class="fu">lotri</span>({prop <span class="sc">+</span> add <span class="sc">~</span> <span class="fu">c</span>(<span class="fl">0.227</span>,<span class="fl">0.0</span>,<span class="fl">3.4</span>)})</span></code></pre></div>
-<p>or in a named list, see
-<code>vignette(&quot;multiple_endpoints&quot;)</code>:</p>
+<p>or in a named list (for multiple endpoints):</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>sigma       <span class="ot">=</span> <span class="fu">list</span>(</span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>    <span class="at">cp=</span><span class="fu">c</span>(<span class="at">additive_a =</span> <span class="fl">0.144</span>, <span class="at">proportional_b =</span> <span class="fl">0.15</span>),</span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>    <span class="at">pca=</span><span class="fu">c</span>(<span class="at">additive_a =</span> <span class="fl">3.91</span>, <span class="at">proportional_b =</span> <span class="fl">0.0</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>    <span class="at">first_endpoint=</span><span class="fu">c</span>(<span class="at">additive_a =</span> <span class="fl">0.144</span>, <span class="at">proportional_b =</span> <span class="fl">0.15</span>),</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>    <span class="at">second_endpoint=</span><span class="fu">c</span>(<span class="at">additive_a =</span> <span class="fl">3.91</span>, <span class="at">proportional_b =</span> <span class="fl">0.0</span>)</span>
 <span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>    )</span></code></pre></div>
 <p>depending on the residual error model.</p>
 </div>
@@ -545,7 +571,7 @@ character vector.</p>
 <div id="full-model" class="section level2">
 <h2>Full model</h2>
 <p>The <code>posologyr</code> model is the list of all these objects.
-Note: This model does not include inter-occasion variability, so the
+Note: this model does not include inter-occasion variability, so the
 pi_matrix is omitted.</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>mod_vancomyin_Goti2018 <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
 <span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="at">ppk_model   =</span> rxode2<span class="sc">::</span><span class="fu">rxode</span>({</span>
@@ -582,7 +608,7 @@ pi_matrix is omitted.</p>
 <h3>Resulting R object</h3>
 <div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>mod_vancomyin_Goti2018</span>
 <span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a><span class="co">#&gt; $ppk_model</span></span>
-<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a><span class="co">#&gt; rxode2 2.1.2 model named rx_274fc254fbfa90fbebccd323b4a60983 model (✔ ready). </span></span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a><span class="co">#&gt; rxode2 2.1.3 model named rx_df83595b3948ae63c09af93f84ab1c25 model (✔ ready). </span></span>
 <span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co">#&gt; $state: centr, periph, AUC</span></span>
 <span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a><span class="co">#&gt; $params: THETA_Cl, CLCREAT, DIAL, THETA_Vc, WT, THETA_Vp, THETA_Q, ETA_Cl, ETA_Vc, ETA_Vp</span></span>
 <span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="co">#&gt; $lhs: TVCl, TVVc, TVVp, TVQ, Cl, Vc, Vp, Q, ke, k12, k21, Cc</span></span>

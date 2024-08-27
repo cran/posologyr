@@ -25,17 +25,22 @@ ppk_model   = rxode2::rxode({
   })
 
 ## ----error_model--------------------------------------------------------------
-error_model <- function(f,sigma){     #additive model if sigma[2] == 0
-  g <- sigma[1] + sigma[2]*f          #proportional model if sigma[1] == 0
-  return(g)
+error_model <- function(f,sigma){           #additive model if sigma[2] == 0
+  g <- sigma[1]^2 + (sigma[2]^2)*(f^2)      #proportional model if sigma[1] == 0
+  return(sqrt(g))
 }
 
-## ----error_model_nonmem-------------------------------------------------------
-error_model <- function(f,sigma){
-  dv <- cbind(f,1)
-  g  <- diag(dv%*%sigma%*%t(dv))     #sigma is the square matrix of the residual
-  return(sqrt(g))                    #errors
-}
+## ----error_model_multiple_endpoints-------------------------------------------
+error_model = list(
+    first_endpoint = function(f,sigma){
+      g <- sigma[1]^2 + (sigma[2]^2)*(f^2)
+      return(sqrt(g))
+    },
+    second_endpoint = function(f,sigma){
+      g <- sigma[1]^2 + (sigma[2]^2)*(f^2)
+      return(sqrt(g))
+    }
+  )
 
 ## ----theta--------------------------------------------------------------------
 theta = c(THETA_Cl=4.5, THETA_Vc=58.4, THETA_Vp=38.4, THETA_Q=6.5)
@@ -56,8 +61,8 @@ sigma       = lotri::lotri({prop + add ~ c(0.227,0.0,3.4)})
 
 ## ----named_list---------------------------------------------------------------
 sigma       = list(
-    cp=c(additive_a = 0.144, proportional_b = 0.15),
-    pca=c(additive_a = 3.91, proportional_b = 0.0)
+    first_endpoint=c(additive_a = 0.144, proportional_b = 0.15),
+    second_endpoint=c(additive_a = 3.91, proportional_b = 0.0)
     )
 
 ## ----pi_matrix----------------------------------------------------------------

@@ -12,7 +12,7 @@
 
 
 
-<title>Patient data input</title>
+<title>Patient data</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -336,13 +336,13 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 
 
-<h1 class="title toc-ignore">Patient data input</h1>
+<h1 class="title toc-ignore">Patient data</h1>
 
 
 
 <div id="introduction" class="section level1">
 <h1>Introduction</h1>
-<p>This describes the structure of patient records usable by
+<p>This describes the structure of patient records compatible with
 <code>posologyr</code>.</p>
 </div>
 <div id="structure" class="section level1">
@@ -398,6 +398,11 @@ Occasions. Required for models with inter-occasion variability.
 <dt>DVID</dt>
 <dd>
 Observation type. Required for models with multiple endpoints.
+</dd>
+<dt>CMT</dt>
+<dd>
+Name (or number) of the compartment where the dose is administered, see
+<code>vignette(&quot;route_of_administration&quot;)</code>.
 </dd>
 </dl>
 </div>

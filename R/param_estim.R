@@ -1,5 +1,5 @@
 #-------------------------------------------------------------------------
-# posologyr: individual dose optimisation using population PK
+# posologyr: individual dose optimization using population PK
 # Copyright (C) Cyril Leven
 #
 #  This program is free software: you can redistribute it and/or modify
@@ -46,41 +46,38 @@
 #' @return If `return_model` is set to `FALSE`, a list of one element: a
 #' dataframe `$eta` of the individual values of ETA.
 #' If `return_model` is set to `TRUE`, a list of the dataframe of the
-#' individual values of ETA, and a rxode2 model using the simulated ETAs.
+#' individual values of ETA, `$model` an rxode2 model using the estimated ETAs,
+#' `$event` the `data.table` used to solve the returned rxode2 model.
 #'
 #' @examples
 #' # model
-#' mod_run001 <- list(
-#' ppk_model = rxode2::rxode({
-#'   centr(0) = 0;
-#'   depot(0) = 0;
+#' mod_run001 <- function() {
+#'   ini({
+#'     THETA_Cl <- 4.0
+#'     THETA_Vc <- 70.0
+#'     THETA_Ka <- 1.0
+#'     ETA_Cl ~ 0.2
+#'     ETA_Vc ~ 0.2
+#'     ETA_Ka ~ 0.2
+#'     prop.sd <- sqrt(0.05)
+#'   })
+#'   model({
+#'     TVCl <- THETA_Cl
+#'     TVVc <- THETA_Vc
+#'     TVKa <- THETA_Ka
 #'
-#'   TVCl = THETA_Cl;
-#'   TVVc = THETA_Vc;
-#'   TVKa = THETA_Ka;
+#'     Cl <- TVCl*exp(ETA_Cl)
+#'     Vc <- TVVc*exp(ETA_Vc)
+#'     Ka <- TVKa*exp(ETA_Ka)
 #'
-#'   Cl = TVCl*exp(ETA_Cl);
-#'   Vc = TVVc*exp(ETA_Vc);
-#'   Ka = TVKa*exp(ETA_Ka);
+#'     K20 <- Cl/Vc
+#'     Cc <- centr/Vc
 #'
-#'   K20 = Cl/Vc;
-#'   Cc = centr/Vc;
-#'
-#'   d/dt(depot) = -Ka*depot;
-#'   d/dt(centr) = Ka*depot - K20*centr;
-#'   d/dt(AUC) = Cc;
-#' }),
-#' error_model = function(f,sigma) {
-#'   dv <- cbind(f,1)
-#'   g <- diag(dv%*%sigma%*%t(dv))
-#'   return(sqrt(g))
-#' },
-#' theta = c(THETA_Cl=4.0, THETA_Vc=70.0, THETA_Ka=1.0),
-#' omega = lotri::lotri({ETA_Cl + ETA_Vc + ETA_Ka ~
-#'     c(0.2,
-#'       0, 0.2,
-#'       0, 0, 0.2)}),
-#' sigma = lotri::lotri({prop + add ~ c(0.05,0.0,0.00)}))
+#'     d/dt(depot) = -Ka*depot
+#'     d/dt(centr) = Ka*depot - K20*centr
+#'     Cc ~ prop(prop.sd)
+#'   })
+#' }
 #' # df_patient01: event table for Patient01, following a 30 minutes intravenous
 #' # infusion
 #' df_patient01 <- data.frame(ID=1,
@@ -101,8 +98,9 @@ poso_simu_pop <- function(dat=NULL,prior_model=NULL,n_simul=1000,
 
   omega      <- object$omega
   ind_eta    <- which(diag(omega)>0)          # only parameters with IIV
-  omega_eta  <- omega[ind_eta,ind_eta]
+  omega_eta  <- omega[ind_eta,ind_eta,drop=FALSE]
   eta_mat    <- matrix(0,nrow=1,ncol=ncol(omega))
+  first_cov  <- data.frame(object$tdm_data[1,object$covariates])
 
   if (n_simul > 0) {
     eta_mat <- matrix(0,nrow=n_simul,ncol=ncol(omega))
@@ -118,26 +116,35 @@ poso_simu_pop <- function(dat=NULL,prior_model=NULL,n_simul=1000,
 
   # outputs
   if(return_model){
-    model_pop         <- object$solved_ppk_model
-    theta             <- rbind(object$theta)
+    et_poso <- rxode2::as.et(object$tdm_data)
+    et_poso$clearSampling()
+    et_poso$add.sampling(seq(dat$TIME[1],
+                             dat$TIME[length(dat$TIME)]+1,
+                             by=.1))
 
-    if(no_covariates){
-      params <- cbind(theta,eta_df,row.names=NULL)
-    } else {
-      covar             <- as.data.frame(object$tdm_data[1,object$covariates])
-      names(covar)      <- object$covariates
-      params <- cbind(theta,eta_df,covar,row.names=NULL)
+    if(!no_covariates){
+      covar_mat <- sapply(object$covariates,FUN=extrapol_cov,dat=dat,
+                          covar=object$covariates,
+                          interpol_approx="constant",
+                          f=ifelse(object$interpolation == "nocb",1,0),
+                          event_table=et_poso)
+
+      et_poso <- cbind(et_poso,covar_mat)
     }
 
     if (!is.null(object$pi_matrix)){
       kappa_mat         <- matrix(0,nrow=1,ncol=ncol(omega))
       kappa_df          <- data.frame(kappa_mat)
       names(kappa_df)   <- attr(object$pi_matrix,"dimnames")[[1]]
-      params            <- cbind(params,kappa_df)
+      et_poso           <- cbind(et_poso,kappa_df)
     }
 
-    model_pop$params  <- params
-    eta_pop$model     <- model_pop
+    eta_pop$model <- rxode2::rxSolve(object$ppk_model,et_poso,
+                                       cbind(rbind(object$theta),
+                                             eta_pop$eta,
+                                             first_cov,
+                                             row.names=NULL))
+    eta_pop$event <- et_poso
   }
 
   return(eta_pop)
@@ -175,37 +182,33 @@ poso_simu_pop <- function(dat=NULL,prior_model=NULL,n_simul=1000,
 #' rxode2::setRxThreads(1) # limit the number of threads
 #'
 #' # model
-#' mod_run001 <- list(
-#' ppk_model = rxode2::rxode({
-#'   centr(0) = 0;
-#'   depot(0) = 0;
+#' mod_run001 <- function() {
+#'   ini({
+#'     THETA_Cl <- 4.0
+#'     THETA_Vc <- 70.0
+#'     THETA_Ka <- 1.0
+#'     ETA_Cl ~ 0.2
+#'     ETA_Vc ~ 0.2
+#'     ETA_Ka ~ 0.2
+#'     prop.sd <- sqrt(0.05)
+#'   })
+#'   model({
+#'     TVCl <- THETA_Cl
+#'     TVVc <- THETA_Vc
+#'     TVKa <- THETA_Ka
 #'
-#'   TVCl = THETA_Cl;
-#'   TVVc = THETA_Vc;
-#'   TVKa = THETA_Ka;
+#'     Cl <- TVCl*exp(ETA_Cl)
+#'     Vc <- TVVc*exp(ETA_Vc)
+#'     Ka <- TVKa*exp(ETA_Ka)
 #'
-#'   Cl = TVCl*exp(ETA_Cl);
-#'   Vc = TVVc*exp(ETA_Vc);
-#'   Ka = TVKa*exp(ETA_Ka);
+#'     K20 <- Cl/Vc
+#'     Cc <- centr/Vc
 #'
-#'   K20 = Cl/Vc;
-#'   Cc = centr/Vc;
-#'
-#'   d/dt(depot) = -Ka*depot;
-#'   d/dt(centr) = Ka*depot - K20*centr;
-#'   d/dt(AUC) = Cc;
-#' }),
-#' error_model = function(f,sigma) {
-#'   dv <- cbind(f,1)
-#'   g <- diag(dv%*%sigma%*%t(dv))
-#'   return(sqrt(g))
-#' },
-#' theta = c(THETA_Cl=4.0, THETA_Vc=70.0, THETA_Ka=1.0),
-#' omega = lotri::lotri({ETA_Cl + ETA_Vc + ETA_Ka ~
-#'     c(0.2,
-#'       0, 0.2,
-#'       0, 0, 0.2)}),
-#' sigma = lotri::lotri({prop + add ~ c(0.05,0.0,0.00)}))
+#'     d/dt(depot) = -Ka*depot
+#'     d/dt(centr) = Ka*depot - K20*centr
+#'     Cc ~ prop(prop.sd)
+#'   })
+#' }
 #' # df_patient01: event table for Patient01, following a 30 minutes intravenous
 #' # infusion
 #' df_patient01 <- data.frame(ID=1,
@@ -234,9 +237,9 @@ poso_estim_map <- function(dat=NULL,prior_model=NULL,return_model=TRUE,
   error_model   <- object$error_model
   interpolation <- object$interpolation
 
-  ind_eta      <- which(diag(omega)>0)          # only parameters with IIV
-  omega_eta    <- omega[ind_eta,ind_eta]        # only variances > 0
-  solve_omega  <- try(solve(omega_eta))         # inverse of omega_eta
+  ind_eta      <- which(diag(omega)>0)               # only parameters with IIV
+  omega_eta    <- omega[ind_eta,ind_eta,drop=FALSE]  # only variances > 0
+  solve_omega  <- try(solve(omega_eta))              # inverse of omega_eta
 
   eta_map      <- diag(omega)*0
 
@@ -500,37 +503,33 @@ poso_estim_map <- function(dat=NULL,prior_model=NULL,return_model=TRUE,
 #'
 #' @examples
 #' # model
-#' mod_run001 <- list(
-#' ppk_model = rxode2::rxode({
-#'   centr(0) = 0;
-#'   depot(0) = 0;
+#' mod_run001 <- function() {
+#'   ini({
+#'     THETA_Cl <- 4.0
+#'     THETA_Vc <- 70.0
+#'     THETA_Ka <- 1.0
+#'     ETA_Cl ~ 0.2
+#'     ETA_Vc ~ 0.2
+#'     ETA_Ka ~ 0.2
+#'     prop.sd <- sqrt(0.05)
+#'   })
+#'   model({
+#'     TVCl <- THETA_Cl
+#'     TVVc <- THETA_Vc
+#'     TVKa <- THETA_Ka
 #'
-#'   TVCl = THETA_Cl;
-#'   TVVc = THETA_Vc;
-#'   TVKa = THETA_Ka;
+#'     Cl <- TVCl*exp(ETA_Cl)
+#'     Vc <- TVVc*exp(ETA_Vc)
+#'     Ka <- TVKa*exp(ETA_Ka)
 #'
-#'   Cl = TVCl*exp(ETA_Cl);
-#'   Vc = TVVc*exp(ETA_Vc);
-#'   Ka = TVKa*exp(ETA_Ka);
+#'     K20 <- Cl/Vc
+#'     Cc <- centr/Vc
 #'
-#'   K20 = Cl/Vc;
-#'   Cc = centr/Vc;
-#'
-#'   d/dt(depot) = -Ka*depot;
-#'   d/dt(centr) = Ka*depot - K20*centr;
-#'   d/dt(AUC) = Cc;
-#' }),
-#' error_model = function(f,sigma) {
-#'   dv <- cbind(f,1)
-#'   g <- diag(dv%*%sigma%*%t(dv))
-#'   return(sqrt(g))
-#' },
-#' theta = c(THETA_Cl=4.0, THETA_Vc=70.0, THETA_Ka=1.0),
-#' omega = lotri::lotri({ETA_Cl + ETA_Vc + ETA_Ka ~
-#'     c(0.2,
-#'       0, 0.2,
-#'       0, 0, 0.2)}),
-#' sigma = lotri::lotri({prop + add ~ c(0.05,0.0,0.00)}))
+#'     d/dt(depot) = -Ka*depot
+#'     d/dt(centr) = Ka*depot - K20*centr
+#'     Cc ~ prop(prop.sd)
+#'   })
+#' }
 #' # df_patient01: event table for Patient01, following a 30 minutes intravenous
 #' # infusion
 #' df_patient01 <- data.frame(ID=1,
@@ -574,7 +573,7 @@ poso_estim_mcmc <- function(dat=NULL,prior_model=NULL,return_model=TRUE,
            y_obs <- dat[dat$EVID==0,c("DV","DVID")])
     ind_eta      <- which(diag(omega)>0)      # only parameters with IIV
     nb_etas      <- length(ind_eta)
-    omega_eta    <- omega[ind_eta,ind_eta]    # only variances > 0
+    omega_eta    <- omega[ind_eta,ind_eta,drop=FALSE]    # only variances > 0
     solve_omega  <- try(solve(omega_eta))     # inverse of omega_eta
     chol_omega   <- chol(omega_eta)
     rw_init      <- 0.5                  #initial variance parameter for kernels
@@ -793,37 +792,33 @@ poso_estim_mcmc <- function(dat=NULL,prior_model=NULL,return_model=TRUE,
 #' @import data.table
 #' @examples
 #' # model
-#' mod_run001 <- list(
-#' ppk_model = rxode2::rxode({
-#'   centr(0) = 0;
-#'   depot(0) = 0;
+#' mod_run001 <- function() {
+#'   ini({
+#'     THETA_Cl <- 4.0
+#'     THETA_Vc <- 70.0
+#'     THETA_Ka <- 1.0
+#'     ETA_Cl ~ 0.2
+#'     ETA_Vc ~ 0.2
+#'     ETA_Ka ~ 0.2
+#'     prop.sd <- sqrt(0.05)
+#'   })
+#'   model({
+#'     TVCl <- THETA_Cl
+#'     TVVc <- THETA_Vc
+#'     TVKa <- THETA_Ka
 #'
-#'   TVCl = THETA_Cl;
-#'   TVVc = THETA_Vc;
-#'   TVKa = THETA_Ka;
+#'     Cl <- TVCl*exp(ETA_Cl)
+#'     Vc <- TVVc*exp(ETA_Vc)
+#'     Ka <- TVKa*exp(ETA_Ka)
 #'
-#'   Cl = TVCl*exp(ETA_Cl);
-#'   Vc = TVVc*exp(ETA_Vc);
-#'   Ka = TVKa*exp(ETA_Ka);
+#'     K20 <- Cl/Vc
+#'     Cc <- centr/Vc
 #'
-#'   K20 = Cl/Vc;
-#'   Cc = centr/Vc;
-#'
-#'   d/dt(depot) = -Ka*depot;
-#'   d/dt(centr) = Ka*depot - K20*centr;
-#'   d/dt(AUC) = Cc;
-#' }),
-#' error_model = function(f,sigma) {
-#'   dv <- cbind(f,1)
-#'   g <- diag(dv%*%sigma%*%t(dv))
-#'   return(sqrt(g))
-#' },
-#' theta = c(THETA_Cl=4.0, THETA_Vc=70.0, THETA_Ka=1.0),
-#' omega = lotri::lotri({ETA_Cl + ETA_Vc + ETA_Ka ~
-#'     c(0.2,
-#'       0, 0.2,
-#'       0, 0, 0.2)}),
-#' sigma = lotri::lotri({prop + add ~ c(0.05,0.0,0.00)}))
+#'     d/dt(depot) = -Ka*depot
+#'     d/dt(centr) = Ka*depot - K20*centr
+#'     Cc ~ prop(prop.sd)
+#'   })
+#' }
 #' # df_patient01: event table for Patient01, following a 30 minutes intravenous
 #' # infusion
 #' df_patient01 <- data.frame(ID=1,
@@ -859,7 +854,7 @@ poso_estim_sir <- function(dat=NULL,prior_model=NULL,n_sample=1e4,
          y_obs <- dat[dat$EVID==0,c("DV","DVID")])
   ind_eta      <- which(diag(omega)>0)      # only parameters with IIV
   nb_etas      <- length(ind_eta)
-  omega_eta    <- omega[ind_eta,ind_eta]    # only variances > 0
+  omega_eta    <- omega[ind_eta,ind_eta,drop=FALSE]    # only variances > 0
   omega_sim    <- omega_eta
   omega_dim    <- ncol(omega_eta)
   solve_omega  <- try(solve(omega_eta))     # inverse of omega_eta
@@ -903,7 +898,7 @@ poso_estim_sir <- function(dat=NULL,prior_model=NULL,n_sample=1e4,
     # matrix large enough for omega + pi
     eta_mat           <- matrix(0,nrow=n_sample,
                                 ncol=ncol(all_the_mat)-
-                                  ncol(omega[ind_eta,ind_eta])+
+                                  ncol(omega[ind_eta,ind_eta,drop=FALSE])+
                                   ncol(omega))
 
     # IIV
