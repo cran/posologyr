@@ -1,6 +1,6 @@
-5313ab4c8bfb14617ab7cd322a584b5b *DESCRIPTION
+102aeeaf20b3606619d308b9f582c8de *DESCRIPTION
 7bf544c0e2cedee32cb71cd11aa43546 *NAMESPACE
-7abf9bc27a49df445845fee7b66ee896 *NEWS.md
+9b73b0b32ff408699f8bce8d32720be1 *NEWS.md
 5c8ccab7e14495e5fd9097934d2168ba *R/dosing_optim.R
 8460d1befad7d4cb757c5a76da50f21c *R/et.R
 f864dcdab29301d44d9f74addf980996 *R/input_validation.R
@@ -30,7 +30,7 @@ dbce0e9d55443b8ed4930163619519bb *tests/testthat.R
 227ba185c0e59b2b88a2ff77372c1143 *tests/testthat/test_classoutput.R
 52dabcc539570d0a46ea0287a2a4a8bb *tests/testthat/test_doseoptim.R
 6872d0469f792ebe455a5c522f4f8e4a *tests/testthat/test_doseoptim_cmt.R
-bf198b0b0151bbc063d32916fc40f4e0 *tests/testthat/test_doseoptim_tdm.R
+dd6c6ffb29cd4a4d786ccb899bfe3e58 *tests/testthat/test_doseoptim_tdm.R
 00791d997c6db7dbf19a7818a45825fe *tests/testthat/test_issue_10.R
 3aa64b3328c491e2b441c3a69d936e3a *tests/testthat/test_issue_28.R
 4cad1bb2b0c046f444a32232885577f3 *tests/testthat/test_issue_29.R

@@ -1,6 +1,6 @@
 Package: posologyr
 Title: Individual Dose Optimization using Population Pharmacokinetics
-Version: 1.2.7
+Version: 1.2.8
 Authors@R: c(
     person("Cyril","Leven",role = c("aut", "cre","cph"),
            email = "cyril.leven@chu-brest.fr",
@@ -12,13 +12,12 @@ Authors@R: c(
     person("Audrey","Lavenu",role = c("ctb")),
     person("Marc","Lavielle",role = c("ctb"))
     )
-Description: Optimize drug regimens through model-informed precision dosing, 
-    using individual pharmacokinetic (PK) and pharmacokinetic-pharmacodynamic 
-    (PK-PD) profiles. By integrating therapeutic drug monitoring (TDM) data with
-    population models, 'posologyr' provides accurate posterior estimates and 
-    enables the calculation of personalized dosing regimens. The empirical Bayes
-    estimates are computed following the method described by Kang et al. (2012) 
-    <doi:10.4196/kjpp.2012.16.2.97>.
+Description: Personalize drug regimens using individual pharmacokinetic (PK) and 
+    pharmacokinetic-pharmacodynamic (PK-PD) profiles. By combining therapeutic 
+    drug monitoring (TDM) data with a population model, 'posologyr' offers 
+    accurate posterior estimates and helps compute optimal individualized dosing
+    regimens. The empirical Bayes estimates are computed following the method 
+    described by Kang et al. (2012) <doi:10.4196/kjpp.2012.16.2.97>.
 License: AGPL-3
 Encoding: UTF-8
 RoxygenNote: 7.3.2
@@ -31,7 +30,7 @@ URL: https://levenc.github.io/posologyr/,
 BugReports: https://github.com/levenc/posologyr/issues
 Config/testthat/edition: 3
 NeedsCompilation: no
-Packaged: 2024-09-13 06:47:58 UTC; cyril
+Packaged: 2025-02-04 16:19:12 UTC; cyril
 Author: Cyril Leven [aut, cre, cph] (<https://orcid.org/0000-0002-0697-4370>),
   Matthew Fidler [ctb] (<https://orcid.org/0000-0001-8538-6691>),
   Emmanuelle Comets [ctb],
@@ -39,4 +38,4 @@ Author: Cyril Leven [aut, cre, cph] (<https://orcid.org/0000-0002-0697-4370>),
   Marc Lavielle [ctb]
 Maintainer: Cyril Leven <cyril.leven@chu-brest.fr>
 Repository: CRAN
-Date/Publication: 2024-09-13 07:10:02 UTC
+Date/Publication: 2025-02-04 22:40:02 UTC
